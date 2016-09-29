@@ -184,20 +184,6 @@ func (o *Buffer) encode(p *StructProperties, it interface{}) error {
 
 // Encode a bool.
 func (o *Buffer) enc_bool(p *Properties, base structPointer) error {
-	v := *structPointer_Bool(base, p.field)
-	if v == nil {
-		return ErrNil
-	}
-	x := 0
-	if *v {
-		x = 1
-	}
-	o.buf = append(o.buf, p.tagcode...)
-	p.valEnc(o, uint64(x))
-	return nil
-}
-
-func (o *Buffer) enc_proto3_bool(p *Properties, base structPointer) error {
 	v := *structPointer_BoolVal(base, p.field)
 	if !v {
 		return ErrNil
@@ -209,17 +195,6 @@ func (o *Buffer) enc_proto3_bool(p *Properties, base structPointer) error {
 
 // Encode an int32.
 func (o *Buffer) enc_int32(p *Properties, base structPointer) error {
-	v := structPointer_Word32(base, p.field)
-	if word32_IsNil(v) {
-		return ErrNil
-	}
-	x := int32(word32_Get(v)) // permit sign extension to use full 64-bit range
-	o.buf = append(o.buf, p.tagcode...)
-	p.valEnc(o, uint64(x))
-	return nil
-}
-
-func (o *Buffer) enc_proto3_int32(p *Properties, base structPointer) error {
 	v := structPointer_Word32Val(base, p.field)
 	x := int32(word32Val_Get(v)) // permit sign extension to use full 64-bit range
 	if x == 0 {
@@ -233,17 +208,6 @@ func (o *Buffer) enc_proto3_int32(p *Properties, base structPointer) error {
 // Encode a uint32.
 // Exactly the same as int32, except for no sign extension.
 func (o *Buffer) enc_uint32(p *Properties, base structPointer) error {
-	v := structPointer_Word32(base, p.field)
-	if word32_IsNil(v) {
-		return ErrNil
-	}
-	x := word32_Get(v)
-	o.buf = append(o.buf, p.tagcode...)
-	p.valEnc(o, uint64(x))
-	return nil
-}
-
-func (o *Buffer) enc_proto3_uint32(p *Properties, base structPointer) error {
 	v := structPointer_Word32Val(base, p.field)
 	x := word32Val_Get(v)
 	if x == 0 {
@@ -256,17 +220,6 @@ func (o *Buffer) enc_proto3_uint32(p *Properties, base structPointer) error {
 
 // Encode an int64.
 func (o *Buffer) enc_int64(p *Properties, base structPointer) error {
-	v := structPointer_Word64(base, p.field)
-	if word64_IsNil(v) {
-		return ErrNil
-	}
-	x := word64_Get(v)
-	o.buf = append(o.buf, p.tagcode...)
-	p.valEnc(o, x)
-	return nil
-}
-
-func (o *Buffer) enc_proto3_int64(p *Properties, base structPointer) error {
 	v := structPointer_Word64Val(base, p.field)
 	x := word64Val_Get(v)
 	if x == 0 {
@@ -279,23 +232,28 @@ func (o *Buffer) enc_proto3_int64(p *Properties, base structPointer) error {
 
 // Encode a string.
 func (o *Buffer) enc_string(p *Properties, base structPointer) error {
-	v := *structPointer_String(base, p.field)
-	if v == nil {
-		return ErrNil
-	}
-	x := *v
-	o.buf = append(o.buf, p.tagcode...)
-	o.EncodeStringBytes(x)
-	return nil
-}
-
-func (o *Buffer) enc_proto3_string(p *Properties, base structPointer) error {
 	v := *structPointer_StringVal(base, p.field)
 	if v == "" {
 		return ErrNil
 	}
 	o.buf = append(o.buf, p.tagcode...)
 	o.EncodeStringBytes(v)
+	return nil
+}
+
+// Encode a pointer to something.
+func (o *Buffer) enc_pointer(p *Properties, base structPointer) error {
+	v := *structPointer_PointerVal(base, p.field)
+	if v == nil {
+		// pointer is nil; skip it
+		return ErrNil
+	}
+	// encode whatever the pointer points to
+	pp := p.pprop
+	if pp.enc != nil {
+		return pp.enc(o, pp, structPointer(v))
+	}
+
 	return nil
 }
 
@@ -308,12 +266,32 @@ func isNil(v reflect.Value) bool {
 	return false
 }
 
-// Encode a message struct.
-func (o *Buffer) enc_struct_message(p *Properties, base structPointer) error {
+// Encode a *message struct.
+func (o *Buffer) enc_p_struct_message(p *Properties, base structPointer) error {
 	structp := structPointer_GetStructPointer(base, p.field)
 	if structPointer_IsNil(structp) {
 		return ErrNil
 	}
+
+	// Can the object marshal itself?
+	if p.isMarshaler {
+		m := structPointer_Interface(structp, p.stype).(Marshaler)
+		data, err := m.MarshalProtobuf3()
+		if err != nil {
+			return err
+		}
+		o.buf = append(o.buf, p.tagcode...)
+		o.EncodeRawBytes(data)
+		return nil
+	}
+
+	o.buf = append(o.buf, p.tagcode...)
+	return o.enc_len_struct(p.sprop, structp)
+}
+
+// Encode a message struct.
+func (o *Buffer) enc_struct_message(p *Properties, base structPointer) error {
+	structp := structPointer_GetStructVal(base, p.field)
 
 	// Can the object marshal itself?
 	if p.isMarshaler {

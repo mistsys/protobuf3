@@ -95,11 +95,6 @@ func structPointer_BytesSlice(p structPointer, f field) *[][]byte {
 	return (*[][]byte)(unsafe.Pointer(uintptr(p) + uintptr(f)))
 }
 
-// Bool returns the address of a *bool field in the struct.
-func structPointer_Bool(p structPointer, f field) **bool {
-	return (**bool)(unsafe.Pointer(uintptr(p) + uintptr(f)))
-}
-
 // BoolVal returns the address of a bool field in the struct.
 func structPointer_BoolVal(p structPointer, f field) *bool {
 	return (*bool)(unsafe.Pointer(uintptr(p) + uintptr(f)))
@@ -108,11 +103,6 @@ func structPointer_BoolVal(p structPointer, f field) *bool {
 // BoolSlice returns the address of a []bool field in the struct.
 func structPointer_BoolSlice(p structPointer, f field) *[]bool {
 	return (*[]bool)(unsafe.Pointer(uintptr(p) + uintptr(f)))
-}
-
-// String returns the address of a *string field in the struct.
-func structPointer_String(p structPointer, f field) **string {
-	return (**string)(unsafe.Pointer(uintptr(p) + uintptr(f)))
 }
 
 // StringVal returns the address of a string field in the struct.
@@ -125,6 +115,11 @@ func structPointer_StringSlice(p structPointer, f field) *[]string {
 	return (*[]string)(unsafe.Pointer(uintptr(p) + uintptr(f)))
 }
 
+// PointerVal returns the address of a pointer field in a struct.
+func structPointer_PointerVal(p structPointer, f field) *unsafe.Pointer {
+	return (*unsafe.Pointer)(unsafe.Pointer(uintptr(p) + uintptr(f)))
+}
+
 // NewAt returns the reflect.Value for a pointer to a field in the struct.
 func structPointer_NewAt(p structPointer, f field, typ reflect.Type) reflect.Value {
 	return reflect.NewAt(typ, unsafe.Pointer(uintptr(p)+uintptr(f)))
@@ -133,6 +128,11 @@ func structPointer_NewAt(p structPointer, f field, typ reflect.Type) reflect.Val
 // GetStructPointer reads a *struct field in the struct.
 func structPointer_GetStructPointer(p structPointer, f field) structPointer {
 	return *(*structPointer)(unsafe.Pointer(uintptr(p) + uintptr(f)))
+}
+
+// GetStructVal returns the address of a struct field in the struct.
+func structPointer_GetStructVal(p structPointer, f field) structPointer {
+	return structPointer(unsafe.Pointer(uintptr(p) + uintptr(f)))
 }
 
 // StructPointerSlice the address of a []*struct field in the struct.
@@ -146,24 +146,6 @@ type structPointerSlice []structPointer
 func (v *structPointerSlice) Len() int                  { return len(*v) }
 func (v *structPointerSlice) Index(i int) structPointer { return (*v)[i] }
 func (v *structPointerSlice) Append(p structPointer)    { *v = append(*v, p) }
-
-// A word32 is the address of a "pointer to 32-bit value" field.
-type word32 **uint32
-
-// IsNil reports whether *v is nil.
-func word32_IsNil(p word32) bool {
-	return *p == nil
-}
-
-// Get gets the value pointed at by *v.
-func word32_Get(p word32) uint32 {
-	return **p
-}
-
-// Word32 returns the address of a *int32, *uint32, *float32, or *enum field in the struct.
-func structPointer_Word32(p structPointer, f field) word32 {
-	return word32((**uint32)(unsafe.Pointer(uintptr(p) + uintptr(f))))
-}
 
 // A word32Val is the address of a 32-bit value field.
 type word32Val *uint32
@@ -188,21 +170,6 @@ func (v *word32Slice) Index(i int) uint32 { return (*v)[i] }
 // Word32Slice returns the address of a []int32, []uint32, []float32, or []enum field in the struct.
 func structPointer_Word32Slice(p structPointer, f field) *word32Slice {
 	return (*word32Slice)(unsafe.Pointer(uintptr(p) + uintptr(f)))
-}
-
-// word64 is like word32 but for 64-bit values.
-type word64 **uint64
-
-func word64_IsNil(p word64) bool {
-	return *p == nil
-}
-
-func word64_Get(p word64) uint64 {
-	return **p
-}
-
-func structPointer_Word64(p structPointer, f field) word64 {
-	return word64((**uint64)(unsafe.Pointer(uintptr(p) + uintptr(f))))
 }
 
 // word64Val is like word32Val but for 64-bit values.

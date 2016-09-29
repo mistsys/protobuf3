@@ -76,44 +76,6 @@ type decoder func(p *Buffer, prop *Properties, base structPointer) error
 // A valueDecoder decodes a single integer in a particular encoding.
 type valueDecoder func(o *Buffer) (x uint64, err error)
 
-// tagMap is an optimization over map[int]int for typical protocol buffer
-// use-cases. Encoded protocol buffers are often in tag order with small tag
-// numbers.
-type tagMap struct {
-	fastTags []int
-	slowTags map[int]int
-}
-
-// tagMapFastLimit is the upper bound on the tag number that will be stored in
-// the tagMap slice rather than its map.
-const tagMapFastLimit = 1024
-
-func (p *tagMap) get(t int) (int, bool) {
-	if t > 0 && t < tagMapFastLimit {
-		if t >= len(p.fastTags) {
-			return 0, false
-		}
-		fi := p.fastTags[t]
-		return fi, fi >= 0
-	}
-	fi, ok := p.slowTags[t]
-	return fi, ok
-}
-
-func (p *tagMap) put(t int, fi int) {
-	if t > 0 && t < tagMapFastLimit {
-		for len(p.fastTags) < t+1 {
-			p.fastTags = append(p.fastTags, -1)
-		}
-		p.fastTags[t] = fi
-		return
-	}
-	if p.slowTags == nil {
-		p.slowTags = make(map[int]int)
-	}
-	p.slowTags[t] = fi
-}
-
 // StructProperties represents properties for all the fields of a struct.
 type StructProperties struct {
 	Prop  []Properties // properties for each field, indexed by reflection's field number. Fields which are not encoded in protobuf have incomplete Properties
@@ -133,7 +95,7 @@ func (sp *StructProperties) Swap(i, j int) { sp.order[i], sp.order[j] = sp.order
 type Properties struct {
 	Name     string // name of the field, for error messages
 	Wire     string
-	Tag      int
+	Tag      uint32
 	Repeated bool
 
 	enc         encoder
@@ -141,9 +103,13 @@ type Properties struct {
 	field       field
 	tagcode     []byte // encoding of EncodeVarint((Tag<<3)|WireType)
 	tagbuf      [8]byte
-	stype       reflect.Type      // set for struct types only
-	sprop       *StructProperties // set for struct types only
 	isMarshaler bool
+
+	stype reflect.Type      // set for struct types only
+	sprop *StructProperties // set for struct types only
+
+	ptype reflect.Type // set for pointer types only
+	pprop *Properties  // set for pointer types only
 
 	mtype    reflect.Type // set for map types only
 	mkeyprop *Properties  // set for map types only
@@ -154,7 +120,7 @@ type Properties struct {
 func (p *Properties) String() string {
 	s := p.Wire
 	s = ","
-	s += strconv.Itoa(p.Tag)
+	s += strconv.FormatUint(uint64(p.Tag), 10)
 	s += ",opt" // all protobuf v3 fields are optional
 	if p.Repeated {
 		s += ",rep"
@@ -193,11 +159,14 @@ func (p *Properties) Parse(s string) (bool, error) {
 		return false, fmt.Errorf("protobuf3: tag of %q has unknown wire type: %q", p.Name, s)
 	}
 
-	var err error
-	p.Tag, err = strconv.Atoi(fields[1])
+	tag, err := strconv.Atoi(fields[1])
 	if err != nil {
 		return false, fmt.Errorf("protobuf3: tag id of %q invalid: %s: %s", p.Name, s, err.Error())
 	}
+	if tag <= 0 { // catch any negative or 0 values
+		return false, fmt.Errorf("protobuf3: tag id of %q out of range: %s", p.Name, s)
+	}
+	p.Tag = uint32(tag)
 
 	for i := 2; i < len(fields); i++ {
 		f := fields[i]
@@ -217,29 +186,25 @@ func logNoSliceEnc(t1, t2 reflect.Type) {
 var protoMessageType = reflect.TypeOf((*Message)(nil)).Elem()
 
 // Initialize the fields for encoding and decoding.
-func (p *Properties) setEnc(typ reflect.Type, f *reflect.StructField, lockGetProp bool) {
+func (p *Properties) setEnc(typ reflect.Type, f *reflect.StructField, lockGetProp bool) error {
 	p.enc = nil
 
 	switch t1 := typ; t1.Kind() {
 	default:
-		fmt.Fprintf(os.Stderr, "proto: no coders for %v\n", t1)
+		return fmt.Errorf("protobuf3: no coders for %v", t1)
 
 	// proto3 scalar types
 
 	case reflect.Bool:
-		p.enc = (*Buffer).enc_proto3_bool
+		p.enc = (*Buffer).enc_bool
 	case reflect.Int32:
-		p.enc = (*Buffer).enc_proto3_int32
-	case reflect.Uint32:
-		p.enc = (*Buffer).enc_proto3_uint32
-	case reflect.Int64, reflect.Uint64:
-		p.enc = (*Buffer).enc_proto3_int64
-	case reflect.Float32:
-		p.enc = (*Buffer).enc_proto3_uint32 // can just treat them as bits
-	case reflect.Float64:
-		p.enc = (*Buffer).enc_proto3_int64 // can just treat them as bits
+		p.enc = (*Buffer).enc_int32
+	case reflect.Uint32, reflect.Float32:
+		p.enc = (*Buffer).enc_uint32
+	case reflect.Int64, reflect.Uint64, reflect.Float64:
+		p.enc = (*Buffer).enc_int64
 	case reflect.String:
-		p.enc = (*Buffer).enc_proto3_string
+		p.enc = (*Buffer).enc_string
 
 	case reflect.Struct:
 		p.stype = t1
@@ -247,28 +212,13 @@ func (p *Properties) setEnc(typ reflect.Type, f *reflect.StructField, lockGetPro
 		p.enc = (*Buffer).enc_struct_message
 
 	case reflect.Ptr:
-		switch t2 := t1.Elem(); t2.Kind() {
-		default:
-			fmt.Fprintf(os.Stderr, "proto: no encoder function for %v -> %v\n", t1, t2)
-			break
-		case reflect.Bool:
-			p.enc = (*Buffer).enc_bool
-		case reflect.Int32:
-			p.enc = (*Buffer).enc_int32
-		case reflect.Uint32:
-			p.enc = (*Buffer).enc_uint32
-		case reflect.Int64, reflect.Uint64:
-			p.enc = (*Buffer).enc_int64
-		case reflect.Float32:
-			p.enc = (*Buffer).enc_uint32 // can just treat them as bits
-		case reflect.Float64:
-			p.enc = (*Buffer).enc_int64 // can just treat them as bits
-		case reflect.String:
-			p.enc = (*Buffer).enc_string
-		case reflect.Struct:
-			p.stype = t1.Elem()
-			p.isMarshaler = isMarshaler(t1)
-			p.enc = (*Buffer).enc_struct_message
+		p.enc = (*Buffer).enc_pointer
+
+		p.ptype = t1.Elem()
+		p.pprop = &Properties{}
+		_, err := p.pprop.init(p.ptype, p.Name, f.Tag.Get("protobuf"), nil, lockGetProp)
+		if err != nil {
+			return err
 		}
 
 	case reflect.Slice:
@@ -354,6 +304,8 @@ func (p *Properties) setEnc(typ reflect.Type, f *reflect.StructField, lockGetPro
 			p.sprop = getPropertiesLocked(p.stype)
 		}
 	}
+
+	return nil
 }
 
 var (
@@ -388,9 +340,9 @@ func (p *Properties) init(typ reflect.Type, name, tag string, f *reflect.StructF
 		return skip, err
 	}
 
-	p.setEnc(typ, f, lockGetProp)
+	err = p.setEnc(typ, f, lockGetProp)
 
-	return false, nil
+	return false, err
 }
 
 var (
