@@ -141,7 +141,7 @@ func (sp *StructProperties) asProtobuf(t reflect.Type, tname string) string {
 	for i := range sp.props {
 		pp := &sp.props[i]
 		if pp.Wire != "-" {
-			lines = append(lines, fmt.Sprintf("  %s %s = %d;", pp.asProtobuf, pp.protobufFieldName(t), pp.Tag))
+			lines = append(lines, fmt.Sprintf("  %s%s %s = %d;", pp.optional(), pp.asProtobuf, pp.protobufFieldName(t), pp.Tag))
 		}
 	}
 	if len(sp.reserved) != 0 {
@@ -192,6 +192,17 @@ func (p *Properties) protobufFieldName(struct_type reflect.Type) string {
 	}
 
 	return MakeFieldName(p.Name, struct_type)
+}
+
+// return the protobuf "optional" field value (with a whitespace suffix for convenience)
+func (p *Properties) optional() string {
+	// NOTE: we allow "optional" to be applied to all field types, even those for which, in the Go struct definition, there is no good way to tell the difference
+	// between the default value and absence of the value. (an int32 for example, or pretty much nothing but pointers and maps (which are pointers underneath))
+	// What isOptional does is apply
+	if p.isOptional {
+		return "optional "
+	}
+	return ""
 }
 
 // MakeLowercaseFieldName returns a reasonable lowercase field name
@@ -420,7 +431,7 @@ type Properties struct {
 	stype       reflect.Type      // set for struct types only
 	sprop       *StructProperties // set for struct types only
 	isMarshaler bool              // true if the type implements Marshaler and marshals/unmarshals itself
-	isOptional  bool
+	isOptional  bool              // true if the "optional" attribute was specified in the protobuf: tag. This code (for the obvious reason that it doesn't generate the structs we unmarshal into) largely ignores "optional", but it is copied into the generated .proto, and protoc or some other protobuf code generator will obey it
 
 	mtype    reflect.Type // set for map types only
 	mkeyprop *Properties  // set for map types only
@@ -709,11 +720,6 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, int_e
 				p.stype = t2
 			}
 
-			optional := ""
-			if p.isOptional {
-				optional = "optional "
-			}
-
 			switch t2.Kind() {
 			default:
 				return fmt.Errorf("protobuf3: no encoder function for %s -> %s", t1, t2.Name())
@@ -721,63 +727,63 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, int_e
 			case reflect.Bool:
 				p.enc = (*Buffer).enc_ptr_bool
 				p.dec = (*Buffer).dec_ptr_bool
-				p.asProtobuf = optional + "bool"
+				p.asProtobuf = "bool"
 				if p.valEnc == nil {
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", f.Name, t1, wire)
 				}
 			case reflect.Int:
 				p.enc = (*Buffer).enc_ptr_int
 				p.dec = (*Buffer).dec_ptr_int
-				p.asProtobuf = optional + int32_encoder_txt
+				p.asProtobuf = int32_encoder_txt
 				if p.valEnc == nil {
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", f.Name, t1, wire)
 				}
 			case reflect.Uint:
 				p.enc = (*Buffer).enc_ptr_uint
 				p.dec = (*Buffer).dec_ptr_int // signness doesn't matter when decoding. either the top bit is set or it isn't
-				p.asProtobuf = optional + uint32_encoder_txt
+				p.asProtobuf = uint32_encoder_txt
 				if p.valEnc == nil {
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", f.Name, t1, wire)
 				}
 			case reflect.Int8:
 				p.enc = (*Buffer).enc_ptr_int8
 				p.dec = (*Buffer).dec_ptr_int8
-				p.asProtobuf = optional + int32_encoder_txt
+				p.asProtobuf = int32_encoder_txt
 				if p.valEnc == nil {
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", f.Name, t1, wire)
 				}
 			case reflect.Uint8:
 				p.enc = (*Buffer).enc_ptr_uint8
 				p.dec = (*Buffer).dec_ptr_int8
-				p.asProtobuf = optional + uint32_encoder_txt
+				p.asProtobuf = uint32_encoder_txt
 				if p.valEnc == nil {
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", f.Name, t1, wire)
 				}
 			case reflect.Int16:
 				p.enc = (*Buffer).enc_ptr_int16
 				p.dec = (*Buffer).dec_ptr_int16
-				p.asProtobuf = optional + int32_encoder_txt
+				p.asProtobuf = int32_encoder_txt
 				if p.valEnc == nil {
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", f.Name, t1, wire)
 				}
 			case reflect.Uint16:
 				p.enc = (*Buffer).enc_ptr_uint16
 				p.dec = (*Buffer).dec_ptr_int16
-				p.asProtobuf = optional + uint32_encoder_txt
+				p.asProtobuf = uint32_encoder_txt
 				if p.valEnc == nil {
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", f.Name, t1, wire)
 				}
 			case reflect.Int32:
 				p.enc = (*Buffer).enc_ptr_int32
 				p.dec = (*Buffer).dec_ptr_int32
-				p.asProtobuf = optional + int32_encoder_txt
+				p.asProtobuf = int32_encoder_txt
 				if p.valEnc == nil {
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", f.Name, t1, wire)
 				}
 			case reflect.Uint32:
 				p.enc = (*Buffer).enc_ptr_uint32
 				p.dec = (*Buffer).dec_ptr_int32
-				p.asProtobuf = optional + uint32_encoder_txt
+				p.asProtobuf = uint32_encoder_txt
 				if p.valEnc == nil {
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", f.Name, t1, wire)
 				}
@@ -785,11 +791,11 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, int_e
 				if p.WireType == WireBytes && t2 == time_Duration_type {
 					p.enc = (*Buffer).enc_ptr_time_Duration
 					p.dec = (*Buffer).dec_ptr_time_Duration
-					p.asProtobuf = optional + "google.protobuf.Duration"
+					p.asProtobuf = "google.protobuf.Duration"
 				} else {
 					p.enc = (*Buffer).enc_ptr_int64
 					p.dec = (*Buffer).dec_ptr_int64
-					p.asProtobuf = optional + int64_encoder_txt
+					p.asProtobuf = int64_encoder_txt
 					if p.valEnc == nil {
 						return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", f.Name, t1, wire)
 					}
@@ -797,28 +803,28 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, int_e
 			case reflect.Uint64:
 				p.enc = (*Buffer).enc_ptr_int64
 				p.dec = (*Buffer).dec_ptr_int64
-				p.asProtobuf = optional + uint64_encoder_txt
+				p.asProtobuf = uint64_encoder_txt
 				if p.valEnc == nil {
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", f.Name, t1, wire)
 				}
 			case reflect.Float32:
 				p.enc = (*Buffer).enc_ptr_uint32 // can just treat them as bits
 				p.dec = (*Buffer).dec_ptr_int32
-				p.asProtobuf = optional + "float"
+				p.asProtobuf = "float"
 				if p.valEnc == nil {
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", f.Name, t1, wire)
 				}
 			case reflect.Float64:
 				p.enc = (*Buffer).enc_ptr_int64 // can just treat them as bits
 				p.dec = (*Buffer).dec_ptr_int64
-				p.asProtobuf = optional + "double"
+				p.asProtobuf = "double"
 				if p.valEnc == nil {
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", f.Name, t1, wire)
 				}
 			case reflect.String:
 				p.enc = (*Buffer).enc_ptr_string
 				p.dec = (*Buffer).dec_ptr_string
-				p.asProtobuf = optional + "string"
+				p.asProtobuf = "string"
 			case reflect.Struct:
 				p.stype = t2
 				p.sprop, err = getPropertiesLocked(t2)

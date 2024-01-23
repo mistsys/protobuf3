@@ -2091,6 +2091,10 @@ type MsgWithOptionalFields struct {
 	fu64 *uint64  `protobuf:"fixed64,10,optional"`
 	ff32 *float32 `protobuf:"fixed32,11,optional"`
 	ff64 *float64 `protobuf:"fixed64,12,optional"`
+
+	// some fields which aren't pointers. these can also be marked "optional", and that should show up in the generated protobuf
+	i32 int32            `protobuf:"varint,13,optional"`
+	m1  map[int32]string `protobuf:"bytes,14,optional" protobuf_key:"varint,1" protobuf_val:"bytes,2"`
 }
 
 func (*MsgWithOptionalFields) ProtoMessage()    {}
@@ -2112,6 +2116,9 @@ type MsgWithoutOptionalFields struct {
 	fu64 uint64  `protobuf:"fixed64,10"`
 	ff32 float32 `protobuf:"fixed32,11"`
 	ff64 float64 `protobuf:"fixed64,12"`
+
+	i32 int32            `protobuf:"varint,13,optional"`
+	m1  map[int32]string `protobuf:"bytes,14" protobuf_key:"varint,1" protobuf_val:"bytes,2"`
 }
 
 func (*MsgWithoutOptionalFields) ProtoMessage()    {}
@@ -2242,6 +2249,8 @@ func TestOptionalField(t *testing.T) {
 		fu64: 1,
 		ff32: 1.0,
 		ff64: 1.0,
+		i32:  32,
+		m1:   map[int32]string{1: "one", -2: "neg two"},
 	}
 
 	if true {
@@ -2257,6 +2266,8 @@ func TestOptionalField(t *testing.T) {
 		m.fu64 = &m2.fu64
 		m.ff32 = &m2.ff32
 		m.ff64 = &m2.ff64
+		m.i32 = m2.i32
+		m.m1 = m2.m1
 
 		check(&m, &m, t)
 		var mc MsgWithOptionalFields
@@ -2274,6 +2285,8 @@ func TestOptionalField(t *testing.T) {
 			fu64: *mc.fu64,
 			ff32: *mc.ff32,
 			ff64: *mc.ff64,
+			i32:  mc.i32,
+			m1:   mc.m1,
 		}
 		eq("m2_", m2_, m2, t)
 
@@ -2305,6 +2318,8 @@ func TestOptionalField(t *testing.T) {
 			fu64: *mc.fu64,
 			ff32: *mc.ff32,
 			ff64: *mc.ff64,
+			i32:  mc.i32,
+			m1:   mc.m1,
 		}
 		eq("m2_", m2_, m2, t)
 	}
