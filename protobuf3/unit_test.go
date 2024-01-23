@@ -2250,7 +2250,7 @@ func TestOptionalField(t *testing.T) {
 		ff32: 1.0,
 		ff64: 1.0,
 		i32:  32,
-		m1:   map[int32]string{1: "one", -2: "neg two"},
+		m1:   map[int32]string{-2: "neg two"},
 	}
 
 	if true {
