@@ -522,8 +522,8 @@ func (p *Properties) Parse(s string) (IntEncoder, bool, error) {
 		switch field {
 		case "optional":
 			p.isOptional = true
-		// and we don't care about any other fields
-		// (if you don't mark slices/arrays/maps with ",rep" that's your own problem; this encoder always repeats those types)
+			// and we don't care about any other fields
+			// (if you don't mark slices/arrays/maps with ",rep" that's your own problem; this encoder always repeats those types)
 		}
 	}
 

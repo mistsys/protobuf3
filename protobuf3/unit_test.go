@@ -2077,13 +2077,13 @@ func TestReserved(t *testing.T) {
 }
 
 type MsgWithOptionalFields struct {
-	s    *string  `protobuf:"bytes,1,optional"`
-	b    *bool    `protobuf:"varint,2,optional"`
+	s *string `protobuf:"bytes,1,optional"`
+	b *bool   `protobuf:"varint,2,optional"`
 
-	vi32 *int32   `protobuf:"varint,3,optional"`
-	vu32 *uint32  `protobuf:"varint,4,optional"`
-	vi64 *int32   `protobuf:"varint,5,optional"`
-	vu64 *uint32  `protobuf:"varint,6,optional"`
+	vi32 *int32  `protobuf:"varint,3,optional"`
+	vu32 *uint32 `protobuf:"varint,4,optional"`
+	vi64 *int32  `protobuf:"varint,5,optional"`
+	vu64 *uint32 `protobuf:"varint,6,optional"`
 
 	fi32 *int32   `protobuf:"fixed32,7,optional"`
 	fu32 *uint32  `protobuf:"fixed32,8,optional"`
@@ -2098,13 +2098,13 @@ func (m *MsgWithOptionalFields) String() string { return fmt.Sprintf("%+v", *m) 
 func (m *MsgWithOptionalFields) Reset()         { *m = MsgWithOptionalFields{} }
 
 type MsgWithoutOptionalFields struct {
-	s    string  `protobuf:"bytes,1"`
-	b    bool    `protobuf:"varint,2"`
+	s string `protobuf:"bytes,1"`
+	b bool   `protobuf:"varint,2"`
 
-	vi32 int32   `protobuf:"varint,3"`
-	vu32 uint32  `protobuf:"varint,4"`
-	vi64 int32   `protobuf:"varint,5"`
-	vu64 uint32  `protobuf:"varint,6"`
+	vi32 int32  `protobuf:"varint,3"`
+	vu32 uint32 `protobuf:"varint,4"`
+	vi64 int32  `protobuf:"varint,5"`
+	vu64 uint32 `protobuf:"varint,6"`
 
 	fi32 int32   `protobuf:"fixed32,7"`
 	fu32 uint32  `protobuf:"fixed32,8"`
@@ -2230,8 +2230,8 @@ func TestOptionalField(t *testing.T) {
 	}
 
 	m2 := MsgWithoutOptionalFields{
-		s   : "abc",
-		b   : true,
+		s:    "abc",
+		b:    true,
 		vi32: 1,
 		vu32: 1,
 		vi64: 1,
@@ -2245,8 +2245,8 @@ func TestOptionalField(t *testing.T) {
 	}
 
 	if true {
-		m.s    = &m2.s
-		m.b    = &m2.b
+		m.s = &m2.s
+		m.b = &m2.b
 		m.vi32 = &m2.vi32
 		m.vu32 = &m2.vu32
 		m.vi64 = &m2.vi64
@@ -2262,8 +2262,8 @@ func TestOptionalField(t *testing.T) {
 		var mc MsgWithOptionalFields
 		uncheck(&m, &mc, nil, t)
 		m2_ := MsgWithoutOptionalFields{
-			s   : *mc.s,
-			b   : *mc.b,
+			s:    *mc.s,
+			b:    *mc.b,
 			vi32: *mc.vi32,
 			vu32: *mc.vu32,
 			vi64: *mc.vi64,
@@ -2283,7 +2283,6 @@ func TestOptionalField(t *testing.T) {
 		eq("m3", m3, m2, t)
 	}
 
-
 	if true {
 		check(&m2, &m2, t)
 		var m3 MsgWithoutOptionalFields
@@ -2294,8 +2293,8 @@ func TestOptionalField(t *testing.T) {
 		var mc MsgWithOptionalFields
 		uncheck(&m2, &mc, nil, t)
 		m2_ := MsgWithoutOptionalFields{
-			s   : *mc.s,
-			b   : *mc.b,
+			s:    *mc.s,
+			b:    *mc.b,
 			vi32: *mc.vi32,
 			vu32: *mc.vu32,
 			vi64: *mc.vi64,
