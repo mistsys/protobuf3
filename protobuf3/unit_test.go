@@ -2324,3 +2324,18 @@ func TestOptionalField(t *testing.T) {
 		eq("m2_", m2_, m2, t)
 	}
 }
+
+func TestTimestamp(t *testing.T) {
+	// exercise EncodeTimestamp and DecodeTimestamp
+	var buf protobuf3.Buffer
+
+	ts := time.Now()
+	buf.EncodeTimestamp(ts)
+
+	t2, err := buf.DecodeTimestamp()
+	if err != nil {
+		t.Error("ERROR ", err)
+	} else if !ts.Equal(t2) {
+		t.Error("Timestamp decode(encode(ts))!=ts", ts, t2)
+	}
+}
