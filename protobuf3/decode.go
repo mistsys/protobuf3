@@ -1508,10 +1508,19 @@ func (o *Buffer) dec_ptr_time_Time(p *Properties, base unsafe.Pointer) error {
 
 // inner code for decoding protobuf3 standard Timestamp to time.Time
 func (o *Buffer) decode_time_Time(t *time.Time) error {
+	ts, err := o.DecodeTimestamp()
+	if err == nil {
+		*t = ts
+	}
+	return err
+}
+
+// DecodeTimstamp decodes a google.protobuf.Timestamp as a time.Time
+func (o *Buffer) DecodeTimestamp() (time.Time, error) {
 	// first decode the byte length and limit our decoding to that (since messages are encoded in WireBytes)
 	buf, err := o.DecodeRawBytes()
 	if err != nil {
-		return err
+		return time.Time{}, err
 	}
 
 	// swizzle buf (saves gc pressure from a new Buffer)
@@ -1523,7 +1532,7 @@ func (o *Buffer) decode_time_Time(t *time.Time) error {
 		tag, err := o.DecodeVarint()
 		if err != nil {
 			o.buf, o.index = obuf, oi
-			return err
+			return time.Time{}, err
 		}
 		switch tag {
 		case 1<<3 | uint64(WireVarint): // seconds
@@ -1536,15 +1545,15 @@ func (o *Buffer) decode_time_Time(t *time.Time) error {
 		}
 		if err != nil {
 			o.buf, o.index = obuf, oi
-			return err
+			return time.Time{}, err
 		}
 	}
 
-	// save whatever we got (which might even be the zero value)
-	*t = time.Unix(int64(secs), int64(nanos)).UTC() // time.Unix() returns local timezone, which we usually don't use
-
 	o.buf, o.index = obuf, oi
-	return nil
+
+	// return whatever we got (which might even be the zero value)
+	ts := time.Unix(int64(secs), int64(nanos)).UTC() // time.Unix() returns local timezone, which we usually don't use
+	return ts, nil
 }
 
 // custom decoder for protobuf3 standard Duration, decoding it into the go standard time.Duration

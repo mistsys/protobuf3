@@ -1144,13 +1144,17 @@ func (o *Buffer) enc_nothing(p *Properties, base unsafe.Pointer) {
 
 // custom encoder for time.Time, encoding it into the protobuf3 standard Timestamp
 func (o *Buffer) enc_time_Time(p *Properties, base unsafe.Pointer) {
-	t := (*time.Time)(unsafe.Pointer(uintptr(base) + p.offset))
+	ts := *(*time.Time)(unsafe.Pointer(uintptr(base) + p.offset))
+	o.EncodeTimestamp(ts)
+}
 
+// EncodeTimestamp marshals a a time.Time as a google.protobuf.Timestamp, which is a pair of varints (secs,nanos) tagged 1 and 2
+func (o *Buffer) EncodeTimestamp(ts time.Time) {
 	// protobuf Timestamp uses its own encoding, different from time.Time
 	// we have to convert.
 	// don't blame me, the algo comes from ptypes/timestamp.go
-	secs := t.Unix()
-	nanos := int32(t.Sub(time.Unix(secs, 0))) // abuses the implementation detail that time.Duration is in nanoseconds
+	secs := ts.Unix()
+	nanos := int32(ts.Sub(time.Unix(secs, 0))) // abuses the implementation detail that time.Duration is in nanoseconds
 
 	o.buf = append(o.buf, 1<<3|byte(WireVarint))
 	o.EncodeVarint(uint64(secs))
