@@ -74,7 +74,14 @@ var MakePackageName func(pkgpath string) string = MakeSamePackageName
 
 // AsProtobuf3er is the interface which returns the protobuf v3 type equivalent to what the MarshalProtobuf3() method
 // encodes. This is optional, but useful when using AsProtobufFull() against types implementing Marshaler.
+// `definition` can be "" if the datatype doesn't need a custom definition.
+// `imports` is the list of files to import when using this type. The order of imports in the slice is not important, and is not respected.
 type AsProtobuf3er interface {
+	AsProtobuf3() (name string, definition string, imports []string)
+}
+
+// legacy AsProtobuf3() which didn't support imports
+type AsV1Protobuf3er interface {
 	AsProtobuf3() (name string, definition string)
 }
 
@@ -289,6 +296,7 @@ func AsProtobufFull2(t reflect.Type, extra_package_headers []string, more ...ref
 		`syntax = "proto3";`,
 		"",
 	}
+	imported := make(map[string]struct{}) // the set of all imported files
 	var body []string
 
 	if pkgpath != "" {
@@ -329,19 +337,22 @@ func AsProtobufFull2(t reflect.Type, extra_package_headers []string, more ...ref
 						case pp.isMarshaler:
 							// we can't recurse further into a custom type
 							discovered[tt] = struct{}{}
-						case isAsProtobuf3er(reflect.PtrTo(tt)):
+						case isAsProtobuf3er(reflect.PtrTo(tt)) || isAsV1Protobuf3er(reflect.PtrTo(tt)):
 							// this type has a custom protobuf definition. it presumably encodes its own types
 							discovered[tt] = struct{}{}
 						case tt.Kind() == reflect.Struct:
 							switch tt {
-							case time_Time_type, time_Duration_type:
-								// the timestamp and duration types get defined by an import of timestamp.proto
+							case time_Time_type:
+								// the timestamp type get defined by an import of timestamp.proto
 								discovered[tt] = struct{}{}
 							default:
 								// put this new type in the todo table if it isn't already there
 								// (the duplicate insert when it is already present is a no-op)
 								todo[tt] = struct{}{}
 							}
+						case tt == time_Duration_type:
+							// the duration type get defined by an import of duration.proto
+							discovered[tt] = struct{}{}
 						}
 					}
 				}
@@ -368,44 +379,67 @@ func AsProtobufFull2(t reflect.Type, extra_package_headers []string, more ...ref
 		// generate type t's protobuf definition
 		ptr_t := reflect.PtrTo(t)
 
+		var definition string
+		var imports []string
+		var external bool
 		switch {
 		case t == time_Time_type:
 			// the timestamp type gets defined by an import
-			headers = append(headers, `import "google/protobuf/timestamp.proto";`)
+			imports = []string{"google/protobuf/timestamp.proto"}
+			external = true
 
 		case t == time_Duration_type:
 			// the duration type gets defined by an import
-			headers = append(headers, `import "google/protobuf/duration.proto";`)
+			imports = []string{"google/protobuf/duration.proto"}
+			external = true
 
 		case isMarshaler(ptr_t):
 			// we can't define a custom type automatically. see if it can tell us, and otherwise remind the human to do it.
-			if isAsProtobuf3er(ptr_t) {
-				_, definition := reflect.NewAt(t, nil).Interface().(AsProtobuf3er).AsProtobuf3()
-				if definition != "" {
-					body = append(body, "") // put a blank line between each message definition
-					body = append(body, definition)
-				} // else the type doesn't need any additional definition (its name was sufficient)
-			} else {
+			switch {
+			case isAsProtobuf3er(ptr_t):
+				_, definition, imports = reflect.NewAt(t, nil).Interface().(AsProtobuf3er).AsProtobuf3()
+			case isAsV1Protobuf3er(ptr_t):
+				_, definition = reflect.NewAt(t, nil).Interface().(AsV1Protobuf3er).AsProtobuf3()
+			default:
 				headers = append(headers, fmt.Sprintf("// TODO supply the definition of message %s", t.Name()))
+			}
+			if definition == "" {
+				// the type doesn't need any additional definition (its name was sufficient)
+				external = true
 			}
 
 		case isAsProtobuf3er(ptr_t):
-			_, definition := reflect.NewAt(t, nil).Interface().(AsProtobuf3er).AsProtobuf3()
+			_, definition, imports = reflect.NewAt(t, nil).Interface().(AsProtobuf3er).AsProtobuf3()
+
+		case isAsV1Protobuf3er(ptr_t):
+			_, definition = reflect.NewAt(t, nil).Interface().(AsV1Protobuf3er).AsProtobuf3()
+		}
+
+		for _, imp := range imports {
+			imported[imp] = struct{}{}
+		}
+		if !external {
+			if definition == "" {
+				definition = AsProtobuf(t)
+			}
 			if definition != "" {
 				body = append(body, "") // put a blank line between each message definition
 				body = append(body, definition)
-				break
 			}
-			fallthrough
-
-		default:
-			// save t's definition
-			body = append(body, "") // put a blank line between each message definition
-			body = append(body, AsProtobuf(t))
-		}
+		} // else the type doesn't need any additional definition (its name and imports are sufficient)
 	}
 
-	headers = append(headers, "")
+	// generate the import header lines. to make the output reproducible, sort them
+	// (if someone the order of import headers becomes important we'll have to do something fancier, but for now they are well written and independant)
+	if len(imported) != 0 {
+		import_headers := make([]string, 0, len(imported))
+		for imp := range imported {
+			import_headers = append(import_headers, fmt.Sprintf("import %q;", imp))
+		}
+		sort.Strings(import_headers)
+		headers = append(headers, "")
+		headers = append(headers, import_headers...)
+	}
 
 	return strings.Join(append(headers, body...), "\n")
 }
@@ -428,7 +462,7 @@ type Properties struct {
 	valEnc      valueEncoder      // set for bool and numeric types only
 	offset      uintptr           // byte offset of this field within the struct
 	tagcode     string            // encoding of EncodeVarint((Tag<<3)|WireType), stored in a string for efficiency
-	stype       reflect.Type      // set for struct types only
+	stype       reflect.Type      // set for struct types and time.Duration only
 	sprop       *StructProperties // set for struct types only
 	isMarshaler bool              // true if the type implements Marshaler and marshals/unmarshals itself
 	isOptional  bool              // true if the "optional" attribute was specified in the protobuf: tag. This code (for the obvious reason that it doesn't generate the structs we unmarshal into) largely ignores "optional", but it is copied into the generated .proto, and protoc or some other protobuf code generator will obey it
@@ -652,6 +686,7 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, int_e
 			// if the caller wants a time.Duration to be encoded as a protobuf Duration then the
 			// wiretype must be WireBytes. Otherwise they'll get the int64 encoding they've selected.
 			if p.WireType == WireBytes && t1 == time_Duration_type {
+				p.stype = time_Duration_type
 				p.enc = (*Buffer).enc_time_Duration
 				p.dec = (*Buffer).dec_time_Duration
 				p.asProtobuf = "google.protobuf.Duration"
@@ -716,7 +751,7 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, int_e
 				p.asProtobuf = p.stypeAsProtobuf()
 				break
 			}
-			if isAsProtobuf3er(t1) {
+			if isAsProtobuf3er(t1) || isAsV1Protobuf3er(t1) {
 				p.stype = t2
 			}
 
@@ -789,6 +824,7 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, int_e
 				}
 			case reflect.Int64:
 				if p.WireType == WireBytes && t2 == time_Duration_type {
+					p.stype = time_Duration_type
 					p.enc = (*Buffer).enc_ptr_time_Duration
 					p.dec = (*Buffer).dec_ptr_time_Duration
 					p.asProtobuf = "google.protobuf.Duration"
@@ -930,6 +966,7 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, int_e
 				}
 			case reflect.Int64:
 				if p.WireType == WireBytes && t2 == time_Duration_type {
+					p.stype = time_Duration_type
 					p.enc = (*Buffer).enc_slice_time_Duration
 					p.dec = (*Buffer).dec_slice_time_Duration
 					p.asProtobuf = "repeated google.protobuf.Duration"
@@ -1091,6 +1128,7 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, int_e
 				}
 			case reflect.Int64:
 				if p.WireType == WireBytes && t2 == time_Duration_type {
+					p.stype = time_Duration_type
 					p.enc = (*Buffer).enc_array_time_Duration
 					p.dec = (*Buffer).dec_array_time_Duration
 					p.asProtobuf = "repeated google.protobuf.Duration"
@@ -1221,14 +1259,17 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, int_e
 		}
 
 		// if the type overrides the protobuf definition, use that instead
+		var name, definition string
 		if isAsProtobuf3er(ptr_t1) {
-			name, definition := reflect.NewAt(t1, nil).Interface().(AsProtobuf3er).AsProtobuf3()
-			if name != "" {
-				p.asProtobuf = name
-			}
-			if definition != "" {
-				p.stype = t1
-			}
+			name, definition, _ = reflect.NewAt(t1, nil).Interface().(AsProtobuf3er).AsProtobuf3()
+		} else if isAsV1Protobuf3er(ptr_t1) {
+			name, definition = reflect.NewAt(t1, nil).Interface().(AsV1Protobuf3er).AsProtobuf3()
+		}
+		if name != "" {
+			p.asProtobuf = name
+		}
+		if definition != "" {
+			p.stype = t1
 		}
 	}
 
@@ -1260,7 +1301,9 @@ func (p *Properties) stypeAsProtobuf() string {
 
 	// if the stype implements AsProtobuf3er and returns a type name, use that
 	if isAsProtobuf3er(reflect.PtrTo(p.stype)) {
-		name, _ = reflect.NewAt(p.stype, nil).Interface().(AsProtobuf3er).AsProtobuf3() // note AsProtobuf3() might return name "" anyway
+		name, _, _ = reflect.NewAt(p.stype, nil).Interface().(AsProtobuf3er).AsProtobuf3() // note AsProtobuf3() might return name "" anyway
+	} else if isAsV1Protobuf3er(reflect.PtrTo(p.stype)) {
+		name, _ = reflect.NewAt(p.stype, nil).Interface().(AsV1Protobuf3er).AsProtobuf3() // note AsProtobuf3() might return name "" anyway
 	}
 
 	if name == "" {
@@ -1313,8 +1356,9 @@ func MakeUppercaseTypeName(t reflect.Type, f string) string {
 }
 
 var (
-	marshalerType      = reflect.TypeOf((*Marshaler)(nil)).Elem()
-	asprotobuffer3Type = reflect.TypeOf((*AsProtobuf3er)(nil)).Elem()
+	marshalerType        = reflect.TypeOf((*Marshaler)(nil)).Elem()
+	asprotobuffer3Type   = reflect.TypeOf((*AsProtobuf3er)(nil)).Elem()
+	asv1protobuffer3Type = reflect.TypeOf((*AsV1Protobuf3er)(nil)).Elem()
 )
 
 // isMarshaler reports whether type t implements Marshaler.
@@ -1324,6 +1368,10 @@ func isMarshaler(t reflect.Type) bool {
 
 func isAsProtobuf3er(t reflect.Type) bool {
 	return t.Implements(asprotobuffer3Type)
+}
+
+func isAsV1Protobuf3er(t reflect.Type) bool {
+	return t.Implements(asv1protobuffer3Type)
 }
 
 // Init populates the properties from a protocol buffer struct tag.

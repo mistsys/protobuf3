@@ -2339,3 +2339,35 @@ func TestTimestamp(t *testing.T) {
 		t.Error("Timestamp decode(encode(ts))!=ts", ts, t2)
 	}
 }
+
+type MsgWithCustomImports struct {
+}
+
+func (*MsgWithCustomImports) AsProtobuf3() (string, string, []string) {
+	return "S", "message S struct{}", []string{"test/import/file1", "test/import/file2"}
+}
+
+func TestCustomImports(t *testing.T) {
+	var m MsgWithCustomImports
+	s := protobuf3.AsProtobufFull(reflect.TypeOf(m))
+	t.Log(s)
+
+	if !strings.Contains(s, `import "test/import/file1";`) || !strings.Contains(s, `import "test/import/file2";`) {
+		t.Error("custom imports aren't present in full protobuf definition")
+	}
+}
+
+type MsgWithTimestampAndDuration struct {
+	T time.Time     `protobuf:"bytes,1"`
+	D time.Duration `protobuf:"bytes,2"`
+}
+
+func TestTimestampAndDuration(t *testing.T) {
+	var m MsgWithTimestampAndDuration
+	s := protobuf3.AsProtobufFull(reflect.TypeOf(m))
+	t.Log(s)
+
+	if !strings.Contains(s, `import "google/protobuf/timestamp.proto";`) || !strings.Contains(s, `import "google/protobuf/duration.proto";`) {
+		t.Error("standard timestamp and duration imports aren't present in full protobuf definition")
+	}
+}
