@@ -1582,7 +1582,7 @@ func TestMapOfStruct(t *testing.T) {
 }
 
 type MapOfString struct {
-	m map[string]string `protobuf:"bytes,1" protobuf_key:"varint,1" protobuf_val:"bytes,2"`
+	m map[string]string `protobuf:"bytes,1" protobuf_key:"bytes,1" protobuf_val:"bytes,2"`
 }
 
 func TestMapOfString(t *testing.T) {
