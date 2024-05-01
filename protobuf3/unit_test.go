@@ -38,6 +38,8 @@ package protobuf3_test
 import (
 	"bytes"
 	"encoding/binary"
+	ehex "encoding/hex"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -2369,5 +2371,63 @@ func TestTimestampAndDuration(t *testing.T) {
 
 	if !strings.Contains(s, `import "google/protobuf/timestamp.proto";`) || !strings.Contains(s, `import "google/protobuf/duration.proto";`) {
 		t.Error("standard timestamp and duration imports aren't present in full protobuf definition")
+	}
+}
+
+type MsgWithUint8Slice struct {
+	S []percentage `protobuf:"varint,1"`
+	B []int8       `protobuf:"varint,10"`
+}
+
+type percentage uint8
+
+func TestUint8Slice(t *testing.T) {
+	var m MsgWithUint8Slice
+	s := protobuf3.AsProtobufFull(reflect.TypeOf(m))
+	t.Log(s)
+
+	m.S = []percentage{'a', 'b', 'c'}
+	m.B = []int8{'x', 'y', 'z'}
+	pb, err := protobuf3.Marshal(&m)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(ehex.EncodeToString(pb))
+
+	var m2 MsgWithUint8Slice
+	err = protobuf3.Unmarshal(pb, &m2)
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(&m, &m2) {
+		t.Errorf("unmarshal(marshal(m)) != m: %+v != %+v", m, m2)
+	}
+
+	j, err := json.Marshal(&m2)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(string(j))
+}
+
+type MsgWrongWiretypes struct {
+	S struct {
+		X int32  `protobuf:"varint,1"`
+		Y string `protobuf:"fixed32,2"` // deliberate mistake
+	} `protobuf:"varint,2"` // deliberately make a mistake, and given an inner message a wiretype which is not "bytes"
+}
+
+func TestWrongWiretypeForMessage(t *testing.T) {
+	var m MsgWrongWiretypes
+	s:= protobuf3.AsProtobufFull(reflect.TypeOf(m)) // should fail with error
+	t.Log(s)
+
+	m.S.X = 123
+	m.S.Y = "456"
+	pb, err := protobuf3.Marshal(&m)
+	if err != nil {
+		t.Log(err)
+	} else {
+		t.Errorf("Marshal() should have failed. instead it returned %s", ehex.EncodeToString(pb))
 	}
 }

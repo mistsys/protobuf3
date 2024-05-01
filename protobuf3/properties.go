@@ -723,6 +723,9 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 			p.enc = (*Buffer).enc_string
 			p.dec = (*Buffer).dec_string
 			p.asProtobuf = "string"
+			if wire != WireBytes {
+				return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
+			}
 
 		case reflect.Struct:
 			p.stype = t1
@@ -738,6 +741,9 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 			default:
 				p.enc = (*Buffer).enc_struct_message
 				p.dec = (*Buffer).dec_struct_message
+			}
+			if wire != WireBytes {
+				return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
 			}
 
 		case reflect.Ptr:
@@ -861,6 +867,9 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 				p.enc = (*Buffer).enc_ptr_string
 				p.dec = (*Buffer).dec_ptr_string
 				p.asProtobuf = "string"
+				if wire != WireBytes {
+					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
+				}
 			case reflect.Struct:
 				p.stype = t2
 				p.sprop, err = getPropertiesLocked(t2)
@@ -874,6 +883,9 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 					p.dec = (*Buffer).dec_ptr_time_Time
 				default:
 					p.dec = (*Buffer).dec_ptr_struct_message
+				}
+				if wire != WireBytes {
+					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
 				}
 
 				// what about *Slice and *Array types? Fill them in when we need them.
@@ -1009,6 +1021,9 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 				p.enc = (*Buffer).enc_slice_string
 				p.dec = (*Buffer).dec_slice_string
 				p.asProtobuf = "repeated string"
+				if wire != WireBytes {
+					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
+				}
 			case reflect.Struct:
 				p.stype = t2
 				p.sprop, err = getPropertiesLocked(t2)
@@ -1019,6 +1034,9 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 				p.enc = (*Buffer).enc_slice_struct_message
 				p.dec = (*Buffer).dec_slice_struct_message
 				p.asProtobuf = "repeated " + p.stypeAsProtobuf()
+				if wire != WireBytes {
+					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
+				}
 			case reflect.Ptr:
 				switch t3 := t2.Elem(); t3.Kind() {
 				default:
@@ -1034,6 +1052,9 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 					p.enc = (*Buffer).enc_slice_ptr_struct_message
 					p.dec = (*Buffer).dec_slice_ptr_struct_message
 					p.asProtobuf = "repeated " + p.stypeAsProtobuf()
+					if wire != WireBytes {
+						return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
+					}
 				}
 			case reflect.Slice:
 				switch t2.Elem().Kind() {
@@ -1171,6 +1192,9 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 				p.enc = (*Buffer).enc_array_string
 				p.dec = (*Buffer).dec_array_string
 				p.asProtobuf = "repeated string"
+				if wire != WireBytes {
+					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
+				}
 			case reflect.Struct:
 				p.stype = t2
 				p.sprop, err = getPropertiesLocked(t2)
@@ -1180,6 +1204,9 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 				p.enc = (*Buffer).enc_array_struct_message
 				p.dec = (*Buffer).dec_array_struct_message
 				p.asProtobuf = "repeated " + p.stypeAsProtobuf()
+				if wire != WireBytes {
+					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
+				}
 			case reflect.Ptr:
 				switch t3 := t2.Elem(); t3.Kind() {
 				default:
@@ -1195,6 +1222,9 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 					p.enc = (*Buffer).enc_array_ptr_struct_message
 					p.dec = (*Buffer).dec_array_ptr_struct_message
 					p.asProtobuf = "repeated " + p.stypeAsProtobuf()
+					if wire != WireBytes {
+						return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
+					}
 				}
 			}
 
