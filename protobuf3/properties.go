@@ -249,16 +249,16 @@ func MakeLowercaseFieldName(f string, t reflect.Type) string {
 }
 
 // returns the type expressed in protobuf v3 format, suitable for feeding back into the protobuf compiler.
-func AsProtobuf(t reflect.Type) string {
+func AsProtobuf(t reflect.Type) (string, error) {
 	// dig down through any pointer types
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
 	prop, err := GetProperties(t)
 	if err != nil {
-		return "# " + err.Error() // cause an error in the protobuf compiler
+		return "# Error: " + err.Error(), err // cause an error in the protobuf compiler if the input is used
 	}
-	return prop.asProtobuf(t, t.Name())
+	return prop.asProtobuf(t, t.Name()), nil
 }
 
 // given the full path of the package of the 1st type passed to AsProtobufFull(), return
@@ -273,13 +273,13 @@ func MakeSamePackageName(pkgpath string) string {
 }
 
 // returns the type expressed in protobuf v3 format, including all dependent types and imports
-func AsProtobufFull(t reflect.Type, more ...reflect.Type) string {
+func AsProtobufFull(t reflect.Type, more ...reflect.Type) (string, error) {
 	return AsProtobufFull2(t, nil, more...)
 }
 
 // returns the type expressed in protobuf v3 format, including all dependent types and imports
 // extra_headers allow the caller to specify headers they want inserted after the `package` line.
-func AsProtobufFull2(t reflect.Type, extra_package_headers []string, more ...reflect.Type) string {
+func AsProtobufFull2(t reflect.Type, extra_package_headers []string, more ...reflect.Type) (string, error) {
 	// dig down through any pointer types on the first type, since we'll use that one to determine the package
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -315,6 +315,7 @@ func AsProtobufFull2(t reflect.Type, extra_package_headers []string, more ...ref
 	}
 
 	// and lather/rinse/repeat until we've discovered all the types
+	var first_err error
 	for len(todo) != 0 {
 		for t := range todo {
 			// move t from todo to discovered
@@ -324,7 +325,10 @@ func AsProtobufFull2(t reflect.Type, extra_package_headers []string, more ...ref
 			// add to todo any new, non-anonymous types used by struct t's fields
 			p, err := GetProperties(t)
 			if err != nil {
-				body = append(body, "# "+err.Error()) // cause an error in the protobuf compiler
+				if first_err == nil {
+					first_err = err
+				}
+				body = append(body, "# Error: "+err.Error()) // cause an error in the protobuf compiler
 				continue
 			}
 			for i := range p.props {
@@ -420,7 +424,14 @@ func AsProtobufFull2(t reflect.Type, extra_package_headers []string, more ...ref
 		}
 		if !external {
 			if definition == "" {
-				definition = AsProtobuf(t)
+				var err error
+				definition, err = AsProtobuf(t)
+				if err != nil {
+					if first_err == nil {
+						first_err = err
+					}
+					// and definition already contains the error
+				}
 			}
 			if definition != "" {
 				body = append(body, "") // put a blank line between each message definition
@@ -441,7 +452,7 @@ func AsProtobufFull2(t reflect.Type, extra_package_headers []string, more ...ref
 		headers = append(headers, import_headers...)
 	}
 
-	return strings.Join(append(headers, body...), "\n")
+	return strings.Join(append(headers, body...), "\n"), first_err
 }
 
 type Types []reflect.Type

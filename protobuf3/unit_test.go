@@ -1734,7 +1734,10 @@ func TestCustomEnum(t *testing.T) {
 		t.Error("unmarshal(marshal(x)) != x")
 	}
 
-	s := protobuf3.AsProtobuf(reflect.TypeOf(m))
+	s, err := protobuf3.AsProtobuf(reflect.TypeOf(m))
+	if err != nil {
+		t.Error(err)
+	}
 	t.Log(s)
 	nm, ap := m.E.AsProtobuf3()
 	s2 := "message EnumMsg {\n  " + nm + " e = 1;\n}"
@@ -1742,7 +1745,10 @@ func TestCustomEnum(t *testing.T) {
 		t.Errorf("AsProtobuf unexpected: %q != %q", s, s2)
 	}
 
-	f := protobuf3.AsProtobufFull(reflect.TypeOf(m))
+	f, err := protobuf3.AsProtobufFull(reflect.TypeOf(m))
+	if err != nil {
+		t.Error(err)
+	}
 	t.Log(f)
 	if !strings.Contains(f, ap) {
 		t.Errorf("AsProtobufFull doesn't define type AnEnum:\n%s", f)
@@ -2066,7 +2072,10 @@ func TestReserved(t *testing.T) {
 		t.Error(err)
 	}
 
-	s := protobuf3.AsProtobuf(reflect.TypeOf(m))
+	s, err := protobuf3.AsProtobuf(reflect.TypeOf(m))
+	if err != nil {
+		t.Error(err)
+	}
 	t.Log(s)
 	if s != `message ReservedMsg {
   uint32 x = 4;
@@ -2129,7 +2138,10 @@ func (m *MsgWithoutOptionalFields) Reset()         { *m = MsgWithoutOptionalFiel
 
 func TestOptionalField(t *testing.T) {
 	m := MsgWithOptionalFields{}
-	f := protobuf3.AsProtobufFull(reflect.TypeOf(m))
+	f, err := protobuf3.AsProtobufFull(reflect.TypeOf(m))
+	if err != nil {
+		t.Error(err)
+	}
 	t.Log("\n" + f)
 	r, _ := regexp.Compile(` = \d+;$`)
 	for _, line := range strings.Split(f, "\n") {
@@ -2351,7 +2363,10 @@ func (*MsgWithCustomImports) AsProtobuf3() (string, string, []string) {
 
 func TestCustomImports(t *testing.T) {
 	var m MsgWithCustomImports
-	s := protobuf3.AsProtobufFull(reflect.TypeOf(m))
+	s, err := protobuf3.AsProtobufFull(reflect.TypeOf(m))
+	if err != nil {
+		t.Error(err)
+	}
 	t.Log(s)
 
 	if !strings.Contains(s, `import "test/import/file1";`) || !strings.Contains(s, `import "test/import/file2";`) {
@@ -2366,7 +2381,10 @@ type MsgWithTimestampAndDuration struct {
 
 func TestTimestampAndDuration(t *testing.T) {
 	var m MsgWithTimestampAndDuration
-	s := protobuf3.AsProtobufFull(reflect.TypeOf(m))
+	s, err := protobuf3.AsProtobufFull(reflect.TypeOf(m))
+	if err != nil {
+		t.Error(err)
+	}
 	t.Log(s)
 
 	if !strings.Contains(s, `import "google/protobuf/timestamp.proto";`) || !strings.Contains(s, `import "google/protobuf/duration.proto";`) {
@@ -2383,7 +2401,10 @@ type percentage uint8
 
 func TestUint8Slice(t *testing.T) {
 	var m MsgWithUint8Slice
-	s := protobuf3.AsProtobufFull(reflect.TypeOf(m))
+	s, err := protobuf3.AsProtobufFull(reflect.TypeOf(m))
+	if err != nil {
+		t.Error(err)
+	}
 	t.Log(s)
 
 	m.S = []percentage{'a', 'b', 'c'}
@@ -2419,8 +2440,13 @@ type MsgWrongWiretypes struct {
 
 func TestWrongWiretypeForMessage(t *testing.T) {
 	var m MsgWrongWiretypes
-	s:= protobuf3.AsProtobufFull(reflect.TypeOf(m)) // should fail with error
+	s, err := protobuf3.AsProtobufFull(reflect.TypeOf(m)) // should fail with error
 	t.Log(s)
+	if err == nil {
+		t.Error("AsProtobufFull() should have failed")
+	} else {
+		t.Log(err)
+	}
 
 	m.S.X = 123
 	m.S.Y = "456"
