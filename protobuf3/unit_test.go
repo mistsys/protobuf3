@@ -2457,3 +2457,101 @@ func TestWrongWiretypeForMessage(t *testing.T) {
 		t.Errorf("Marshal() should have failed. instead it returned %s", ehex.EncodeToString(pb))
 	}
 }
+
+type MsgWrongFloatWireTypes struct {
+	S1 struct {
+		F1 float32 `protobuf:"varint,1"` // deliberate mistake using varint wiretype
+	} `protobuf:"bytes,1"`
+	S2 struct {
+		F2 float64 `protobuf:"bytes,1"` // deliberate mistake using bytes wiretype
+	} `protobuf:"bytes,2"`
+
+	S3 struct {
+		F3 []float32 `protobuf:"fixed64,1"` // deliberate mistake encoding a float32 into float64 (if needed someday then someone has to implement it)
+	} `protobuf:"bytes,3"`
+	S4 struct {
+		F4 []float64 `protobuf:"bytes,1"` // even throught the slice will be packed into bytes, it needs to use fixed64
+	} `protobuf:"bytes,4"`
+
+	S5 struct {
+		F5 *float32 `protobuf:"varint,1"` // deliberate mistake using varint wiretype
+	} `protobuf:"bytes,5"`
+	S6 struct {
+		F6 [2]float32 `protobuf:"varint,1"` // deliberate mistake using varint wiretype
+	} `protobuf:"bytes,6"`
+}
+
+func TestWrongFloatWiretypes(t *testing.T) {
+	var m MsgWrongFloatWireTypes
+	s, err := protobuf3.AsProtobufFull(reflect.TypeOf(m)) // should fail with error
+	t.Log(s)
+	if err == nil {
+		t.Error("AsProtobufFull() should have failed")
+	} else {
+		t.Log(err)
+	}
+
+	// check each error individually to make sure both sare caught
+	s, err = protobuf3.AsProtobufFull(reflect.TypeOf(m.S1)) // should fail with error
+	t.Log(s)
+	if err == nil {
+		t.Error("AsProtobufFull() should have failed")
+	} else {
+		t.Log(err)
+	}
+
+	s, err = protobuf3.AsProtobufFull(reflect.TypeOf(m.S2)) // should fail with error
+	t.Log(s)
+	if err == nil {
+		t.Error("AsProtobufFull() should have failed")
+	} else {
+		t.Log(err)
+	}
+
+	s, err = protobuf3.AsProtobufFull(reflect.TypeOf(m.S3)) // should fail with error
+	t.Log(s)
+	if err == nil {
+		t.Error("AsProtobufFull() should have failed")
+	} else {
+		t.Log(err)
+	}
+
+	s, err = protobuf3.AsProtobufFull(reflect.TypeOf(m.S4)) // should fail with error
+	t.Log(s)
+	if err == nil {
+		t.Error("AsProtobufFull() should have failed")
+	} else {
+		t.Log(err)
+	}
+
+	s, err = protobuf3.AsProtobufFull(reflect.TypeOf(m.S5)) // should fail with error
+	t.Log(s)
+	if err == nil {
+		t.Error("AsProtobufFull() should have failed")
+	} else {
+		t.Log(err)
+	}
+
+	s, err = protobuf3.AsProtobufFull(reflect.TypeOf(m.S6)) // should fail with error
+	t.Log(s)
+	if err == nil {
+		t.Error("AsProtobufFull() should have failed")
+	} else {
+		t.Log(err)
+	}
+
+	m.S1.F1 = 1.23
+	m.S2.F2 = 2.34
+	m.S3.F3 = []float32{0.12, 1.23}
+	m.S4.F4 = []float64{3.45}
+	var f5 = float32(5.67)
+	m.S5.F5 = &f5
+	m.S6.F6 = [2]float32{6.78, 6.78}
+
+	pb, err := protobuf3.Marshal(&m)
+	if err != nil {
+		t.Log(err)
+	} else {
+		t.Errorf("Marshal() should have failed. instead it returned %s", ehex.EncodeToString(pb))
+	}
+}

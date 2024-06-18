@@ -727,7 +727,7 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 			p.enc = (*Buffer).enc_int64 // can just treat them as bits
 			p.dec = (*Buffer).dec_int64
 			p.asProtobuf = "double"
-			if p.valEnc == nil || wire != WireFixed64 { // the way we encode and decode float32 at the moment means we can only support fixed64
+			if p.valEnc == nil || wire != WireFixed64 { // the way we encode and decode float64 at the moment means we can only support fixed64
 				return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
 			}
 		case reflect.String:
@@ -864,14 +864,14 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 				p.enc = (*Buffer).enc_ptr_uint32 // can just treat them as bits
 				p.dec = (*Buffer).dec_ptr_int32
 				p.asProtobuf = "float"
-				if p.valEnc == nil {
+				if p.valEnc == nil || wire != WireFixed32 { // the way we encode and decode float32 at the moment means we can only support fixed32
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
 				}
 			case reflect.Float64:
 				p.enc = (*Buffer).enc_ptr_int64 // can just treat them as bits
 				p.dec = (*Buffer).dec_ptr_int64
 				p.asProtobuf = "double"
-				if p.valEnc == nil {
+				if p.valEnc == nil || wire != WireFixed64 { // the way we encode and decode float64 at the moment means we can only support fixed64
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
 				}
 			case reflect.String:
@@ -1014,20 +1014,20 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 				// can just treat them as bits
 				p.enc = (*Buffer).enc_slice_packed_uint32
 				p.dec = (*Buffer).dec_slice_packed_int32
-				wire = WireBytes // packed=true...
 				p.asProtobuf = "repeated float"
-				if p.valEnc == nil {
+				if p.valEnc == nil || wire != WireFixed32 { // the way we encode and decode float32 at the moment means we can only support fixed32
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
 				}
+				wire = WireBytes // packed=true...
 			case reflect.Float64:
 				// can just treat them as bits
 				p.enc = (*Buffer).enc_slice_packed_int64
 				p.dec = (*Buffer).dec_slice_packed_int64
-				wire = WireBytes // packed=true...
 				p.asProtobuf = "repeated double"
-				if p.valEnc == nil {
+				if p.valEnc == nil || wire != WireFixed64 { // the way we encode and decode float64 at the moment means we can only support fixed64
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
 				}
+				wire = WireBytes // packed=true...
 			case reflect.String:
 				p.enc = (*Buffer).enc_slice_string
 				p.dec = (*Buffer).dec_slice_string
@@ -1185,20 +1185,20 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 				// can just treat them as bits
 				p.enc = (*Buffer).enc_array_packed_uint32
 				p.dec = (*Buffer).dec_array_packed_int32
-				wire = WireBytes // packed=true...
 				p.asProtobuf = "repeated float"
-				if p.valEnc == nil {
+				if p.valEnc == nil || wire != WireFixed32 { // the way we encode and decode float32 at the moment means we can only support fixed32
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
 				}
+				wire = WireBytes // packed=true...
 			case reflect.Float64:
 				// can just treat them as bits
 				p.enc = (*Buffer).enc_array_packed_int64
 				p.dec = (*Buffer).dec_array_packed_int64
-				wire = WireBytes // packed=true...
 				p.asProtobuf = "repeated double"
-				if p.valEnc == nil {
+				if p.valEnc == nil || wire != WireFixed64 { // the way we encode and decode float64 at the moment means we can only support fixed64
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
 				}
+				wire = WireBytes // packed=true...
 			case reflect.String:
 				p.enc = (*Buffer).enc_array_string
 				p.dec = (*Buffer).dec_array_string
