@@ -467,7 +467,7 @@ type Properties struct {
 	Wire       string
 	asProtobuf string // protobuf v3 type for this field (or something equivalent, since we can't figure it out perfectly from the Go field type and tags)
 	Tag        uint32
-	WireType   WireType
+	WireType   WireType // the wiretype we expect to find in the messages. This is the wiretype from the protobuf: tag except in the case of repeated data, which is always packed in protobuf v3 and uses WireBytes
 
 	enc         encoder
 	valEnc      valueEncoder      // set for bool and numeric types only
@@ -1313,6 +1313,8 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 			p.stype = t1
 		}
 	}
+
+	p.WireType = wire
 
 	// precalculate tag code
 	x := p.Tag<<3 | uint32(wire)

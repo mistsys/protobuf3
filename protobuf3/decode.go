@@ -553,8 +553,8 @@ func (o *Buffer) unmarshal_struct(st reflect.Type, prop *StructProperties, base 
 			fmt.Fprintf(os.Stderr, "protobuf3: no protobuf decoder for %s.%s\n", st, p.Name)
 			continue
 		}
-		if wire != p.WireType && wire != WireBytes { // packed encoding, which is used in protobuf v3, wraps repeated numeric types in WireBytes
-			err = fmt.Errorf("protobuf3: bad wiretype for field %s.%s: got wiretype %v, want %v", st, p.Name, wire, p.WireType)
+		if wire != p.WireType {
+			err = fmt.Errorf("protobuf3: bad wiretype for field %s.%s: got wiretype %v, wanted %v", st, p.Name, wire, p.WireType)
 			break
 		}
 		err = p.dec(o, p, base)
