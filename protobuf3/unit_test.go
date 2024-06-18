@@ -2555,3 +2555,39 @@ func TestWrongFloatWiretypes(t *testing.T) {
 		t.Errorf("Marshal() should have failed. instead it returned %s", ehex.EncodeToString(pb))
 	}
 }
+
+type PackedMsg struct {
+	F []uint32 `protobuf:"varint,1"`
+}
+
+func TestPackedMsg(t *testing.T) {
+	// make sure the message is packed
+	var m PackedMsg
+	m.F = []uint32{1, 2, 345}
+	pb, err := protobuf3.Marshal(&m)
+	if err != nil {
+		t.Errorf("Marshal() failed: %v", err)
+	}
+	// check the wiretype is bytes
+	if wt := protobuf3.WireType(pb[0] & 3); wt != protobuf3.WireBytes {
+		t.Errorf("wiretype of repeated varint is %v; expected bytes", wt)
+	}
+
+	// check it unmarshals properly
+	var m2 PackedMsg
+	err = protobuf3.Unmarshal(pb, &m2)
+	if err != nil {
+		t.Errorf("Unmarshal() failed: %v", err)
+	}
+	eq("PackedMsg", m, m2, t)
+
+	// try unmarshaling unpacked data,and verify that it fails to unmarshal because of the wiretype
+	var m3 PackedMsg
+	pb2 := []byte{(1 << 3) | byte(protobuf3.WireVarint), 2}
+	err = protobuf3.Unmarshal(pb2, &m3)
+	if err == nil {
+		t.Errorf("Unmarshal(unpacked) should have failed")
+	} else if err.Error() != "protobuf3: bad wiretype for field protobuf3_test.PackedMsg.F: got wiretype varint, wanted bytes" {
+		t.Errorf("Unmarshal() failed: %v", err)
+	}
+}
