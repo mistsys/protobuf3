@@ -2352,6 +2352,43 @@ func TestTimestamp(t *testing.T) {
 	} else if !ts.Equal(t2) {
 		t.Error("Timestamp decode(encode(ts))!=ts", ts, t2)
 	}
+
+	// test a timestamp from before the unix epoch
+	ts = time.Unix(-1000, 1)
+	buf.EncodeTimestamp(ts)
+
+	t2, err = buf.DecodeTimestamp()
+	if err != nil {
+		t.Error("ERROR ", err)
+	} else if !ts.Equal(t2) {
+		t.Error("Timestamp decode(encode(ts))!=ts", ts, t2)
+	}
+}
+
+func TestNSecTimestamp(t *testing.T) {
+	// exercise EncodeNSecTimestamp and DecodeNSecTimestamp
+	var buf protobuf3.Buffer
+
+	ts := time.Now().UnixNano()
+	buf.EncodeNSecTimestamp(ts)
+
+	t2, err := buf.DecodeNSecTimestamp()
+	if err != nil {
+		t.Error("ERROR ", err)
+	} else if ts != t2 {
+		t.Error("NSecTimestamp decode(encode(ts))!=ts", ts, t2)
+	}
+
+	// test a timestamp from before the unix epoch
+	ts = time.Unix(-1000, 1).UnixNano()
+	buf.EncodeNSecTimestamp(ts)
+
+	t2, err = buf.DecodeNSecTimestamp()
+	if err != nil {
+		t.Error("ERROR ", err)
+	} else if ts != t2 {
+		t.Error("NSecTimestamp decode(encode(ts))!=ts", ts, t2)
+	}
 }
 
 type MsgWithCustomImports struct {

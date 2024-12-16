@@ -1555,6 +1555,32 @@ func (o *Buffer) DecodeTimestamp() (time.Time, error) {
 	return ts, nil
 }
 
+// DecodeNSecTimstamp decodes a google.protobuf.Timestamp as a int64 nanosecond unix time
+func (o *Buffer) DecodeNSecTimestamp() (int64, error) {
+	var secs, nanos uint64
+	for o.index < ulen(o.buf) {
+		tag, err := o.DecodeVarint()
+		if err != nil {
+			return 0, err
+		}
+		switch tag {
+		case 1<<3 | uint64(WireVarint): // seconds
+			secs, err = o.DecodeVarint()
+		case 2<<3 | uint64(WireVarint): // nanoseconds
+			nanos, err = o.DecodeVarint()
+		default:
+			// do the protobuf thing and ignore unknown tags
+			o.skip(nil, WireType(tag)&7)
+		}
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	// return whatever we got (which might even be the zero value)
+	return int64(secs)*1000_000_000 + int64(nanos), nil
+}
+
 // custom decoder for protobuf3 standard Duration, decoding it into the go standard time.Duration
 func (o *Buffer) dec_time_Duration(p *Properties, base unsafe.Pointer) error {
 	d, err := o.dec_Duration(p)

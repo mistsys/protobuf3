@@ -1148,13 +1148,25 @@ func (o *Buffer) enc_time_Time(p *Properties, base unsafe.Pointer) {
 	o.EncodeTimestamp(ts)
 }
 
-// EncodeTimestamp marshals a a time.Time as a google.protobuf.Timestamp, which is a pair of varints (secs,nanos) tagged 1 and 2
+// EncodeTimestamp marshals a time.Time as a google.protobuf.Timestamp, which is a pair of varints (secs,nanos) tagged 1 and 2
 func (o *Buffer) EncodeTimestamp(ts time.Time) {
 	// protobuf Timestamp uses its own encoding, different from time.Time
 	// we have to convert.
 	// don't blame me, the algo comes from ptypes/timestamp.go
 	secs := ts.Unix()
 	nanos := int32(ts.Sub(time.Unix(secs, 0))) // abuses the implementation detail that time.Duration is in nanoseconds
+
+	o.buf = append(o.buf, 1<<3|byte(WireVarint))
+	o.EncodeVarint(uint64(secs))
+	o.buf = append(o.buf, 2<<3|byte(WireVarint))
+	o.EncodeVarint(uint64(nanos))
+}
+
+// EncodeNSecTimestamp marshals a int64 nanosecond unix timestamp as a google.protobuf.Timestamp, which is a pair of varints (secs,nanos) tagged 1 and 2
+// (this is more performant than converting nanosconds to time.Time and calling EncodeTimestamp(), but the result is identical)
+func (o *Buffer) EncodeNSecTimestamp(ts int64) {
+	secs := ts / 1000_000_000
+	nanos := int32(ts - secs*1000_000_000)
 
 	o.buf = append(o.buf, 1<<3|byte(WireVarint))
 	o.EncodeVarint(uint64(secs))
@@ -1180,8 +1192,8 @@ func (o *Buffer) enc_Duration(p *Properties, d time.Duration) {
 	//     int32 nanos = 2;
 	//   }
 	var nanos int64 = d.Nanoseconds()
-	secs := nanos / 1000000000 // note secs ends up with the same sign as nanos, or is 0
-	nanos -= secs * 1000000000 // note this preserves the sign of nanos (or sets it to 0)
+	secs := nanos / 1000_000_000 // note secs ends up with the same sign as nanos, or is 0
+	nanos -= secs * 1000_000_000 // note this preserves the sign of nanos (or sets it to 0)
 
 	// furthermore go time.Duration is not a struct, but protobuf Duration is a message,
 	// so we have to prepend the tag and length (we expect time.Duration to be sent as bytes,
