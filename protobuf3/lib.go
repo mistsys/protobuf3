@@ -56,7 +56,7 @@ type Message interface {
 	// empty interface. As long as the fields are decorated with protobuf tags or the type implements Marshaler it's fine with us.
 }
 
-// A Buffer is a buffer manager for marshaling and unmarshaling
+// Buffer is a byte slice buffer for marshaling and unmarshaling
 // protocol buffers.  It may be reused between invocations to
 // reduce memory usage.  It is not necessary to use a Buffer;
 // the global functions Marshal and Unmarshal create a
@@ -66,17 +66,29 @@ type Message interface {
 // decode []bytes references directly into the []byte passed to NewBuffer()
 // rather than being expensive copies.
 type Buffer struct {
-	buf           []byte                  // encode/decode byte stream
+	WriteBuffer
+	err           error                   // nil, or the first error which happened during operation
 	index         uint                    // read position in .buf[]
 	Immutable     bool                    // true if we the caller promises the contents of buf[] are immutable, and thus we can retain references to it for types which decode into []byte
-	err           error                   // nil, or the first error which happened during operation
 	array_indexes map[unsafe.Pointer]uint // map of base address of array -> index of next unfilled slot (or nil if never used)
+}
+
+// WriteBuffer is just enough wrapper around a byte slice that it can
+// hold the slice and an accumulated error. Using it when encoding
+// avoids carrying around unecessary fields in Buffer only used when reading.
+type WriteBuffer struct {
+	buf []byte // encode/decode byte stream
 }
 
 // NewBuffer allocates a new Buffer and initializes its internal data to
 // the contents of the argument slice.
 func NewBuffer(e []byte) *Buffer {
-	return &Buffer{buf: e}
+	return &Buffer{WriteBuffer: MakeWriteBuffer(e)}
+}
+
+// MakeWriteBuffer returns a buffer initialize to read or write from the argument slice
+func MakeWriteBuffer(e []byte) WriteBuffer {
+	return WriteBuffer{buf: e}
 }
 
 // Reset resets the Buffer, ready for marshaling a new protocol buffer.
@@ -119,7 +131,7 @@ func (p *Buffer) noteError(err error) {
 }
 
 // Bytes returns the contents of the Buffer.
-func (p *Buffer) Bytes() []byte { return p.buf }
+func (p *WriteBuffer) Bytes() []byte { return p.buf }
 
 // Rewind resets the read point to the start of the buffer.
 func (p *Buffer) Rewind() {

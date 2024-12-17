@@ -1117,12 +1117,13 @@ type CustomAppenderMsg struct {
 
 type CustomAppenderSlice [][]uint32
 
-func (s *CustomAppenderSlice) AppendProtobuf3(o *protobuf3.Buffer, must bool) error {
-	if !must && len(*s) == 0 {
+func (s *CustomAppenderSlice) AppendProtobuf3(b []byte) ([]byte, error) {
+	buf := protobuf3.MakeWriteBuffer(b)
+	if len(*s) == 0 {
 		// the zero-val encodes to nothing
-		return nil
+		return b, nil
 	}
-	var buf, tmp protobuf3.Buffer
+	var tmp protobuf3.Buffer
 	for i, ss := range *s {
 		tmp.Reset()
 		for _, x := range ss {
@@ -1130,8 +1131,7 @@ func (s *CustomAppenderSlice) AppendProtobuf3(o *protobuf3.Buffer, must bool) er
 		}
 		buf.EncodeBytes(uint32(i)+1, tmp.Bytes())
 	}
-	o.EncodeRawBytes(buf.Bytes())
-	return nil
+	return buf.Bytes(), nil
 }
 
 func (s *CustomAppenderSlice) UnmarshalProtobuf3(data []byte) error {
@@ -1161,9 +1161,10 @@ func (s *CustomAppenderSlice) UnmarshalProtobuf3(data []byte) error {
 
 type CustomAppenderInt uint32
 
-func (i *CustomAppenderInt) AppendProtobuf3(o *protobuf3.Buffer, must bool) error {
-	o.EncodeVarint(uint64(*i))
-	return nil
+func (i *CustomAppenderInt) AppendProtobuf3(b []byte) ([]byte, error) {
+	buf := protobuf3.MakeWriteBuffer(b)
+	buf.EncodeVarint(uint64(*i))
+	return buf.Bytes(), nil
 }
 
 func (i *CustomAppenderInt) UnmarshalProtobuf3(data []byte) error {
@@ -1178,9 +1179,10 @@ func (i *CustomAppenderInt) UnmarshalProtobuf3(data []byte) error {
 
 type CustomAppenderFixed uint32
 
-func (i *CustomAppenderFixed) AppendProtobuf3(o *protobuf3.Buffer, must bool) error {
-	o.EncodeFixed32(uint64(*i))
-	return nil
+func (i *CustomAppenderFixed) AppendProtobuf3(b []byte) ([]byte, error) {
+	buf := protobuf3.MakeWriteBuffer(b)
+	buf.EncodeFixed32(uint64(*i))
+	return buf.Bytes(), nil
 }
 
 func (i *CustomAppenderFixed) UnmarshalProtobuf3(data []byte) error {
@@ -1244,9 +1246,8 @@ type SliceAppenderMsg struct {
 
 type TestAppender [4]byte
 
-func (t *TestAppender) AppendProtobuf3(o *protobuf3.Buffer, must bool) error {
-	o.EncodeRawBytes((*t)[:])
-	return nil
+func (t *TestAppender) AppendProtobuf3(b []byte) ([]byte, error) {
+	return append(b, (*t)[:]...), nil
 }
 
 func (t *TestAppender) UnmarshalProtobuf3(data []byte) error {

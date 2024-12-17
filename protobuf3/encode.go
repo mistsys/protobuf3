@@ -66,7 +66,7 @@ var (
 // This is the format for the
 // int32, int64, uint32, uint64, bool, and enum
 // protocol buffer types.
-func (p *Buffer) EncodeVarint(x uint64) {
+func (p *WriteBuffer) EncodeVarint(x uint64) {
 	x32 := uint32(x)
 	if x>>32 == 0 {
 		// use 32-bit math. this is measureably faster on 32-bit targets
@@ -129,7 +129,7 @@ func SizeVarint(x uint64) (n int) {
 // EncodeFixed64 writes a 64-bit integer to the Buffer.
 // This is the format for the
 // fixed64, sfixed64, and double protocol buffer types.
-func (p *Buffer) EncodeFixed64(x uint64) {
+func (p *WriteBuffer) EncodeFixed64(x uint64) {
 	p.buf = append(p.buf,
 		uint8(x),
 		uint8(x>>8),
@@ -144,7 +144,7 @@ func (p *Buffer) EncodeFixed64(x uint64) {
 // EncodeFixed32 writes a 32-bit integer to the Buffer.
 // This is the format for the
 // fixed32, sfixed32, and float protocol buffer types.
-func (p *Buffer) EncodeFixed32(x uint64) {
+func (p *WriteBuffer) EncodeFixed32(x uint64) {
 	p.buf = append(p.buf,
 		uint8(x),
 		uint8(x>>8),
@@ -155,7 +155,7 @@ func (p *Buffer) EncodeFixed32(x uint64) {
 // EncodeZigzag64 writes a zigzag-encoded 64-bit integer
 // to the Buffer.
 // This is the format used for the sint64 protocol buffer type.
-func (p *Buffer) EncodeZigzag64(x uint64) {
+func (p *WriteBuffer) EncodeZigzag64(x uint64) {
 	// use signed number to get arithmetic right shift.
 	p.EncodeVarint(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
@@ -163,14 +163,14 @@ func (p *Buffer) EncodeZigzag64(x uint64) {
 // EncodeZigzag32 writes a zigzag-encoded 32-bit integer
 // to the Buffer.
 // This is the format used for the sint32 protocol buffer type.
-func (p *Buffer) EncodeZigzag32(x uint64) {
+func (p *WriteBuffer) EncodeZigzag32(x uint64) {
 	// use signed number to get arithmetic right shift.
 	p.EncodeVarint(uint64((uint32(x) << 1) ^ uint32((int32(x) >> 31))))
 }
 
 // EncodeBytes writes a bytes tag and count-delimited byte slice to the Buffer.
 // This is equivalent to encoding a 'b []byte `protobuf:"bytes,tag"` field.
-func (p *Buffer) EncodeBytes(tag uint32, b []byte) {
+func (p *WriteBuffer) EncodeBytes(tag uint32, b []byte) {
 	p.EncodeVarint(uint64(tag)<<3 + uint64(WireBytes))
 	p.EncodeRawBytes(b)
 }
@@ -178,14 +178,14 @@ func (p *Buffer) EncodeBytes(tag uint32, b []byte) {
 // EncodeRawBytes writes a count-delimited byte buffer to the Buffer.
 // This is the format used for the bytes protocol buffer
 // type and for embedded messages.
-func (p *Buffer) EncodeRawBytes(b []byte) {
+func (p *WriteBuffer) EncodeRawBytes(b []byte) {
 	p.EncodeVarint(uint64(len(b)))
 	p.buf = append(p.buf, b...)
 }
 
 // EncodeStringBytes writes an encoded string to the Buffer.
 // This is the format used for the proto2 string type.
-func (p *Buffer) EncodeStringBytes(s string) {
+func (p *WriteBuffer) EncodeStringBytes(s string) {
 	p.EncodeVarint(uint64(len(s)))
 	p.buf = append(p.buf, s...)
 }
@@ -203,10 +203,10 @@ type Marshaler interface {
 // a protobuf3.Buffer. This can be more efficient than Marshaler.MarshalProtobuf3() because
 // it may not require a temporary []byte.
 type Appender interface {
-	// AppendProtobuf3 should encode the Appender in protobuf, adding it to Buffer.
-	// If the Appender's wiretype is WireBytes then prepending the varint length is the appender's responsibility.
-	// If must_encode then zerovalues must be encoded (needed when appending in slices and maps)
-	AppendProtobuf3(o *Buffer, must_encode bool) error
+	// AppendProtobuf3 should encode the Appender in protobuf, appending it to the argument
+	// byte slice, and returning the result. the argument might be nil, or it might have no
+	// capacity, but the hope is it will be a useful temporary buffer
+	AppendProtobuf3([]byte) ([]byte, error)
 	unmarshaler
 }
 
@@ -523,29 +523,50 @@ func (o *Buffer) enc_marshaler(p *Properties, base unsafe.Pointer) {
 // encode_appender appends a Appender, handling the zero value case properly.
 // the returned error is noted in the buffer
 func (o *Buffer) encode_appender(p *Properties, ptr unsafe.Pointer, must_encode bool) error {
-	a := reflect.NewAt(p.stype, ptr).Interface().(Appender)
-
-	// append the tagcode. we'll remove it if nothing is appended
-	n := len(o.buf)
+	// append the tagcode. we'll remove it if, in the end, ptr marshals to nothing
+	n1 := len(o.buf)
 	o.buf = append(o.buf, p.tagcode...)
+	if p.WireType == WireBytes {
+		// add a single byte for the length. we might need more, and we'll adjust later if we do,
+		// but it's the small objects which need the most performance improvement so we optimize for them
+		o.buf = append(o.buf, 0)
+	}
 	n2 := len(o.buf)
 
-	err := a.AppendProtobuf3(o, must_encode) // NOTE: WireByte types are responsible for prepending their length
+	a := reflect.NewAt(p.stype, ptr).Interface().(Appender)
+	var err error
+	o.buf, err = a.AppendProtobuf3(o.buf)
 	if err != nil {
+		o.buf = o.buf[:n1] // remove the incomplete data for neatness
 		o.noteError(err)
 		return err
 	}
-	if len(o.buf) == n2 {
-		if must_encode {
-			// AppendProtobuf3 has a bug. it should have appended something but it didn't
-			err = fmt.Errorf("protobuf3: %s.AppendProtobuf3(, true) is buggy and appended nothing", p.stype)
-			o.noteError(err)
-			return err
-		}
 
-		// appender didn't append anything; remove the tagcode so we don't cause confusion
-		o.buf = o.buf[:n]
+	if !must_encode && len(o.buf) == n2 {
+		// AppendProtobuf3 didn't append anything; it must be the zero value; remove the tagcode (and if we added it, the length placeholder byte)
+		o.buf = o.buf[:n1]
+		return nil
 	}
+
+	if p.WireType == WireBytes {
+		// fixup the length
+		n := uint64(len(o.buf) - n2)
+		if n < 128 {
+			// it fits in the placeholder byte we reserved (including length 0)
+			o.buf[n2-1] = byte(n)
+		} else {
+			// move the appended data forward to make room for the byte length
+			s := SizeVarint(n)
+			o.buf = append(o.buf[:n2-1+s], o.buf[n2:]...)
+			// temporarily rewind to where the length goes
+			n3 := len(o.buf)
+			o.buf = o.buf[:n2-1]
+			o.EncodeVarint(n)
+			// then restore to the whole buffer
+			o.buf = o.buf[:n3]
+		}
+	}
+
 	return nil
 }
 
@@ -1276,13 +1297,13 @@ func (o *Buffer) enc_nothing(p *Properties, base unsafe.Pointer) {
 }
 
 // custom encoder for time.Time, encoding it into the protobuf3 standard Timestamp
-func (o *Buffer) enc_time_Time(p *Properties, base unsafe.Pointer) {
+func (o *WriteBuffer) enc_time_Time(p *Properties, base unsafe.Pointer) {
 	ts := *(*time.Time)(unsafe.Pointer(uintptr(base) + p.offset))
 	o.EncodeTimestamp(ts)
 }
 
 // EncodeTimestamp marshals a time.Time as a google.protobuf.Timestamp, which is a pair of varints (secs,nanos) tagged 1 and 2
-func (o *Buffer) EncodeTimestamp(ts time.Time) {
+func (o *WriteBuffer) EncodeTimestamp(ts time.Time) {
 	// protobuf Timestamp uses its own encoding, different from time.Time
 	// we have to convert.
 	// don't blame me, the algo comes from ptypes/timestamp.go
@@ -1297,7 +1318,7 @@ func (o *Buffer) EncodeTimestamp(ts time.Time) {
 
 // EncodeNSecTimestamp marshals a int64 nanosecond unix timestamp as a google.protobuf.Timestamp, which is a pair of varints (secs,nanos) tagged 1 and 2
 // (this is more performant than converting nanosconds to time.Time and calling EncodeTimestamp(), but the result is identical)
-func (o *Buffer) EncodeNSecTimestamp(ts int64) {
+func (o *WriteBuffer) EncodeNSecTimestamp(ts int64) {
 	secs := ts / 1000_000_000
 	nanos := int32(ts - secs*1000_000_000)
 
@@ -1309,7 +1330,7 @@ func (o *Buffer) EncodeNSecTimestamp(ts int64) {
 
 // AppendNSecTimestamp marshals a int64 nanosecond unix timestamp as a google.protobuf.Timestamp, which is a pair of varints (secs,nanos) tagged 1 and 2
 // prefixed by the total length of the value (needed for WireBytes)
-func (o *Buffer) AppendNSecTimestamp(ts int64) {
+func (o *WriteBuffer) AppendNSecTimestamp(ts int64) {
 	secs := ts / 1000_000_000
 	nanos := int32(ts - secs*1000_000_000)
 
