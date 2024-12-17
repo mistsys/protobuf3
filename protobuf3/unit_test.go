@@ -1113,6 +1113,7 @@ type CustomAppenderMsg struct {
 	Slice  CustomAppenderSlice  `protobuf:"bytes,1"`
 	Int    CustomAppenderInt    `protobuf:"varint,2"`
 	Fixedp *CustomAppenderFixed `protobuf:"fixed32,3"`
+	Large  CustomAppenderBytes  `protobuf:"bytes,4"`
 }
 
 type CustomAppenderSlice [][]uint32
@@ -1193,10 +1194,27 @@ func (i *CustomAppenderFixed) UnmarshalProtobuf3(data []byte) error {
 	return nil
 }
 
+type CustomAppenderBytes []byte
+
+func (s *CustomAppenderBytes) AppendProtobuf3(b []byte) ([]byte, error) {
+	if len(*s) == 0 {
+		// the zero-val encodes to nothing
+		return b, nil
+	}
+	return append(b, *s...), nil
+}
+
+func (s *CustomAppenderBytes) UnmarshalProtobuf3(data []byte) error {
+	*s = nil
+	*s = append(*s, data...)
+	return nil
+}
+
 type EquivToCustomAppenderMsg struct {
 	Custom *EquivCustomAppenderSlices `protobuf:"bytes,1"`
 	Int    uint32                     `protobuf:"varint,2"`
 	Fixedp *uint32                    `protobuf:"fixed32,3"`
+	Large  []byte                     `protobuf:"bytes,4"`
 }
 
 type EquivCustomAppenderSlices struct {
@@ -1213,11 +1231,17 @@ func (m *EquivCustomAppenderSlices) String() string { return fmt.Sprintf("%+v", 
 func (m *EquivCustomAppenderSlices) Reset()         { *m = EquivCustomAppenderSlices{} }
 
 func TestCustomAppenderMsg(t *testing.T) {
+	large := make([]byte, 136) // larger than 127, so it exercises the memmove case in Buffer.encode_appender()
+	for i := range large {
+		large[i] = byte(i + 1)
+	}
+
 	var custom_int = CustomAppenderFixed(7)
 	m := CustomAppenderMsg{
 		Slice:  CustomAppenderSlice{[]uint32{1, 2}, []uint32{3, 4, 5}},
 		Int:    5,
 		Fixedp: &custom_int,
+		Large:  CustomAppenderBytes(large),
 	}
 
 	var custom_uint32 = uint32(custom_int)
@@ -1228,6 +1252,7 @@ func TestCustomAppenderMsg(t *testing.T) {
 		},
 		Int:    5,
 		Fixedp: &custom_uint32,
+		Large:  large,
 	}
 
 	check(&o, &o, t)
