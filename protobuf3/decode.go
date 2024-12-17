@@ -464,7 +464,7 @@ func (p *Buffer) Unmarshal(pb Message) error {
 	}
 
 	// If the object can unmarshal itself, let it.
-	if m, ok := pb.(Marshaler); ok {
+	if m, ok := pb.(unmarshaler); ok {
 		err := m.UnmarshalProtobuf3(p.buf[p.index:])
 		p.index = ulen(p.buf)
 		return err
@@ -1292,8 +1292,8 @@ func (o *Buffer) dec_slice_struct_message(p *Properties, base unsafe.Pointer) er
 
 	// and unmarshal into it
 	val := slice.Index(n)
-	if p.isMarshaler {
-		return val.Addr().Interface().(Marshaler).UnmarshalProtobuf3(raw)
+	if p.isAppender || p.isMarshaler {
+		return val.Addr().Interface().(unmarshaler).UnmarshalProtobuf3(raw)
 	}
 
 	pval := unsafe.Pointer(val.UnsafeAddr())
@@ -1322,8 +1322,8 @@ func (o *Buffer) dec_array_struct_message(p *Properties, base unsafe.Pointer) er
 		// address of element i
 		ptr_elem := unsafe.Pointer(uintptr(ptr) + uintptr(i)*p.stype.Size())
 
-		if p.isMarshaler {
-			err = reflect.NewAt(p.stype, ptr_elem).Interface().(Marshaler).UnmarshalProtobuf3(raw)
+		if p.isAppender || p.isMarshaler {
+			err = reflect.NewAt(p.stype, ptr_elem).Interface().(unmarshaler).UnmarshalProtobuf3(raw)
 		} else {
 			// unmarshal into pval
 			obuf, oi := o.buf, o.index
@@ -1351,8 +1351,8 @@ func (o *Buffer) dec_slice_ptr_struct_message(p *Properties, base unsafe.Pointer
 	pv := unsafe.Pointer(v.Pointer())
 
 	// unmarshal into the new struct
-	if p.isMarshaler {
-		err = v.Interface().(Marshaler).UnmarshalProtobuf3(raw)
+	if p.isAppender || p.isMarshaler {
+		err = v.Interface().(unmarshaler).UnmarshalProtobuf3(raw)
 	} else {
 		obuf, oi := o.buf, o.index
 		o.buf, o.index = raw, 0
@@ -1382,8 +1382,8 @@ func (o *Buffer) dec_array_ptr_struct_message(p *Properties, base unsafe.Pointer
 	pv := unsafe.Pointer(v.Pointer())
 
 	// unmarshal into the new struct
-	if p.isMarshaler {
-		err = v.Interface().(Marshaler).UnmarshalProtobuf3(raw)
+	if p.isAppender || p.isMarshaler {
+		err = v.Interface().(unmarshaler).UnmarshalProtobuf3(raw)
 	} else {
 		obuf, oi := o.buf, o.index
 		o.buf, o.index = raw, 0
@@ -1409,7 +1409,7 @@ func (o *Buffer) dec_array_ptr_struct_message(p *Properties, base unsafe.Pointer
 }
 
 // Decode an embedded message that can unmarshal itself
-func (o *Buffer) dec_marshaler(p *Properties, base unsafe.Pointer) error {
+func (o *Buffer) dec_unmarshaler(p *Properties, base unsafe.Pointer) error {
 	raw, err := o.get(p.stype, p.WireType)
 	if err != nil {
 		return err
@@ -1417,11 +1417,11 @@ func (o *Buffer) dec_marshaler(p *Properties, base unsafe.Pointer) error {
 
 	ptr := unsafe.Pointer(uintptr(base) + p.offset)
 	iv := reflect.NewAt(p.stype, ptr).Interface()
-	return iv.(Marshaler).UnmarshalProtobuf3(raw)
+	return iv.(unmarshaler).UnmarshalProtobuf3(raw)
 }
 
 // Decode a pointer to an embedded message that can unmarshal itself
-func (o *Buffer) dec_ptr_marshaler(p *Properties, base unsafe.Pointer) error {
+func (o *Buffer) dec_ptr_unmarshaler(p *Properties, base unsafe.Pointer) error {
 	raw, err := o.get(p.stype, p.WireType)
 	if err != nil {
 		return err
@@ -1436,11 +1436,11 @@ func (o *Buffer) dec_ptr_marshaler(p *Properties, base unsafe.Pointer) error {
 		// else the value is already allocated and we merge into it
 		val = reflect.NewAt(p.stype, *pptr)
 	}
-	return val.Interface().(Marshaler).UnmarshalProtobuf3(raw)
+	return val.Interface().(unmarshaler).UnmarshalProtobuf3(raw)
 }
 
 // Decode into slice of things which can marshal themselves
-func (o *Buffer) dec_slice_marshaler(p *Properties, base unsafe.Pointer) error {
+func (o *Buffer) dec_slice_unmarshaler(p *Properties, base unsafe.Pointer) error {
 	raw, err := o.get(p.stype, p.WireType)
 	if err != nil {
 		return err
@@ -1461,11 +1461,11 @@ func (o *Buffer) dec_slice_marshaler(p *Properties, base unsafe.Pointer) error {
 
 	// and unmarshal into it
 	val := slice.Index(n)
-	return val.Addr().Interface().(Marshaler).UnmarshalProtobuf3(raw)
+	return val.Addr().Interface().(unmarshaler).UnmarshalProtobuf3(raw)
 }
 
-// Decode into an array of Marshalers ([N]T, where T implements Marshaler)
-func (o *Buffer) dec_array_marshaler(p *Properties, base unsafe.Pointer) error {
+// Decode into an array of unarshalers ([N]T, where T implements unarshaler)
+func (o *Buffer) dec_array_unmarshaler(p *Properties, base unsafe.Pointer) error {
 	raw, err := o.get(p.stype, p.WireType)
 	if err != nil {
 		return err
@@ -1477,7 +1477,7 @@ func (o *Buffer) dec_array_marshaler(p *Properties, base unsafe.Pointer) error {
 	if i < n {
 		// address of element i
 		ptr_elem := unsafe.Pointer(uintptr(ptr) + uintptr(i)*p.stype.Size())
-		err = reflect.NewAt(p.stype, ptr_elem).Interface().(Marshaler).UnmarshalProtobuf3(raw)
+		err = reflect.NewAt(p.stype, ptr_elem).Interface().(unmarshaler).UnmarshalProtobuf3(raw)
 		i++
 		o.saveIndex(ptr, i)
 	}

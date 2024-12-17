@@ -941,15 +941,15 @@ func TestTimeMsg(t *testing.T) {
 	eq("dur4", mb.dur4, m.dur4, t)
 }
 
-type CustomMsg struct {
-	Slice  CustomSlice  `protobuf:"bytes,1"`
-	Int    CustomInt    `protobuf:"varint,2"`
-	Fixedp *CustomFixed `protobuf:"fixed32,3"`
+type CustomMarshalerMsg struct {
+	Slice  CustomMarshalerSlice  `protobuf:"bytes,1"`
+	Int    CustomMarshalerInt    `protobuf:"varint,2"`
+	Fixedp *CustomMarshalerFixed `protobuf:"fixed32,3"`
 }
 
-type CustomSlice [][]uint32
+type CustomMarshalerSlice [][]uint32
 
-func (s *CustomSlice) MarshalProtobuf3() ([]byte, error) {
+func (s *CustomMarshalerSlice) MarshalProtobuf3() ([]byte, error) {
 	var buf, tmp protobuf3.Buffer
 	for i, ss := range *s {
 		tmp.Reset()
@@ -961,7 +961,7 @@ func (s *CustomSlice) MarshalProtobuf3() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (s *CustomSlice) UnmarshalProtobuf3(data []byte) error {
+func (s *CustomMarshalerSlice) UnmarshalProtobuf3(data []byte) error {
 	buf := protobuf3.NewBuffer(data)
 	for !buf.EOF() {
 		err := buf.SkipVarint()
@@ -986,70 +986,70 @@ func (s *CustomSlice) UnmarshalProtobuf3(data []byte) error {
 	return nil
 }
 
-type CustomInt uint32
+type CustomMarshalerInt uint32
 
-func (i *CustomInt) MarshalProtobuf3() ([]byte, error) {
+func (i *CustomMarshalerInt) MarshalProtobuf3() ([]byte, error) {
 	var buf protobuf3.Buffer
 	buf.EncodeVarint(uint64(*i))
 	return buf.Bytes(), nil
 }
 
-func (i *CustomInt) UnmarshalProtobuf3(data []byte) error {
+func (i *CustomMarshalerInt) UnmarshalProtobuf3(data []byte) error {
 	buf := protobuf3.NewBuffer(data)
 	x, err := buf.DecodeVarint()
 	if err != nil {
 		return err
 	}
-	*i = CustomInt(x)
+	*i = CustomMarshalerInt(x)
 	return nil
 }
 
-type CustomFixed uint32
+type CustomMarshalerFixed uint32
 
-func (i *CustomFixed) MarshalProtobuf3() ([]byte, error) {
+func (i *CustomMarshalerFixed) MarshalProtobuf3() ([]byte, error) {
 	var buf [4]byte
 	binary.LittleEndian.PutUint32(buf[:], uint32(*i))
 	return buf[:], nil
 }
 
-func (i *CustomFixed) UnmarshalProtobuf3(data []byte) error {
+func (i *CustomMarshalerFixed) UnmarshalProtobuf3(data []byte) error {
 	if len(data) != 4 {
 		return fmt.Errorf("fixed32 data length %d is not 4", len(data))
 	}
-	*i = CustomFixed(binary.LittleEndian.Uint32(data))
+	*i = CustomMarshalerFixed(binary.LittleEndian.Uint32(data))
 	return nil
 }
 
-type EquivToCustomMsg struct {
-	Custom *EquivCustomSlices `protobuf:"bytes,1"`
-	Int    uint32             `protobuf:"varint,2"`
-	Fixedp *uint32            `protobuf:"fixed32,3"`
+type EquivToCustomMarshalerMsg struct {
+	Custom *EquivCustomMarshalerSlices `protobuf:"bytes,1"`
+	Int    uint32                      `protobuf:"varint,2"`
+	Fixedp *uint32                     `protobuf:"fixed32,3"`
 }
 
-type EquivCustomSlices struct {
+type EquivCustomMarshalerSlices struct {
 	Slice1 []uint32 `protobuf:"varint,1,packed"`
 	Slice2 []uint32 `protobuf:"varint,2,packed"`
 }
 
-func (*EquivToCustomMsg) ProtoMessage()    {}
-func (m *EquivToCustomMsg) String() string { return fmt.Sprintf("%+v", *m) }
-func (m *EquivToCustomMsg) Reset()         { *m = EquivToCustomMsg{} }
+func (*EquivToCustomMarshalerMsg) ProtoMessage()    {}
+func (m *EquivToCustomMarshalerMsg) String() string { return fmt.Sprintf("%+v", *m) }
+func (m *EquivToCustomMarshalerMsg) Reset()         { *m = EquivToCustomMarshalerMsg{} }
 
-func (*EquivCustomSlices) ProtoMessage()    {}
-func (m *EquivCustomSlices) String() string { return fmt.Sprintf("%+v", *m) }
-func (m *EquivCustomSlices) Reset()         { *m = EquivCustomSlices{} }
+func (*EquivCustomMarshalerSlices) ProtoMessage()    {}
+func (m *EquivCustomMarshalerSlices) String() string { return fmt.Sprintf("%+v", *m) }
+func (m *EquivCustomMarshalerSlices) Reset()         { *m = EquivCustomMarshalerSlices{} }
 
-func TestCustomMsg(t *testing.T) {
-	var custom_int = CustomFixed(7)
-	m := CustomMsg{
-		Slice:  CustomSlice{[]uint32{1, 2}, []uint32{3, 4, 5}},
+func TestCustomMarshalerMsg(t *testing.T) {
+	var custom_int = CustomMarshalerFixed(7)
+	m := CustomMarshalerMsg{
+		Slice:  CustomMarshalerSlice{[]uint32{1, 2}, []uint32{3, 4, 5}},
 		Int:    5,
 		Fixedp: &custom_int,
 	}
 
 	var custom_uint32 = uint32(custom_int)
-	o := EquivToCustomMsg{
-		Custom: &EquivCustomSlices{
+	o := EquivToCustomMarshalerMsg{
+		Custom: &EquivCustomMarshalerSlices{
 			Slice1: []uint32{1, 2},
 			Slice2: []uint32{3, 4, 5},
 		},
@@ -1060,8 +1060,8 @@ func TestCustomMsg(t *testing.T) {
 	check(&o, &o, t)
 	check(&m, &o, t)
 
-	var mb CustomMsg
-	var mc EquivToCustomMsg
+	var mb CustomMarshalerMsg
+	var mc EquivToCustomMarshalerMsg
 	uncheck(&m, &mb, &mc, t)
 	eq("mb", m, mb, t)
 	eq("mc", o, mc, t)
@@ -1104,6 +1104,178 @@ func TestSliceMarshlerMsg(t *testing.T) {
 
 	var mb SliceMarshalerMsg
 	var mc EquivSliceMarshalerMsg
+	uncheck(&m, &mb, &mc, t)
+	eq("mb", m, mb, t)
+	eq("mc", o, mc, t)
+}
+
+type CustomAppenderMsg struct {
+	Slice  CustomAppenderSlice  `protobuf:"bytes,1"`
+	Int    CustomAppenderInt    `protobuf:"varint,2"`
+	Fixedp *CustomAppenderFixed `protobuf:"fixed32,3"`
+}
+
+type CustomAppenderSlice [][]uint32
+
+func (s *CustomAppenderSlice) AppendProtobuf3(o *protobuf3.Buffer, must bool) error {
+	if !must && len(*s) == 0 {
+		// the zero-val encodes to nothing
+		return nil
+	}
+	var buf, tmp protobuf3.Buffer
+	for i, ss := range *s {
+		tmp.Reset()
+		for _, x := range ss {
+			tmp.EncodeVarint(uint64(x))
+		}
+		buf.EncodeBytes(uint32(i)+1, tmp.Bytes())
+	}
+	o.EncodeRawBytes(buf.Bytes())
+	return nil
+}
+
+func (s *CustomAppenderSlice) UnmarshalProtobuf3(data []byte) error {
+	buf := protobuf3.NewBuffer(data)
+	for !buf.EOF() {
+		err := buf.SkipVarint()
+		if err != nil {
+			return err
+		}
+		raw, err := buf.DecodeRawBytes()
+		if err != nil {
+			return err
+		}
+		tmp := protobuf3.NewBuffer(raw)
+		var row []uint32
+		for !tmp.EOF() {
+			v, err := tmp.DecodeVarint()
+			if err != nil {
+				return err
+			}
+			row = append(row, uint32(v))
+		}
+		*s = append(*s, row)
+	}
+	return nil
+}
+
+type CustomAppenderInt uint32
+
+func (i *CustomAppenderInt) AppendProtobuf3(o *protobuf3.Buffer, must bool) error {
+	o.EncodeVarint(uint64(*i))
+	return nil
+}
+
+func (i *CustomAppenderInt) UnmarshalProtobuf3(data []byte) error {
+	buf := protobuf3.NewBuffer(data)
+	x, err := buf.DecodeVarint()
+	if err != nil {
+		return err
+	}
+	*i = CustomAppenderInt(x)
+	return nil
+}
+
+type CustomAppenderFixed uint32
+
+func (i *CustomAppenderFixed) AppendProtobuf3(o *protobuf3.Buffer, must bool) error {
+	o.EncodeFixed32(uint64(*i))
+	return nil
+}
+
+func (i *CustomAppenderFixed) UnmarshalProtobuf3(data []byte) error {
+	if len(data) != 4 {
+		return fmt.Errorf("fixed32 data length %d is not 4", len(data))
+	}
+	*i = CustomAppenderFixed(binary.LittleEndian.Uint32(data))
+	return nil
+}
+
+type EquivToCustomAppenderMsg struct {
+	Custom *EquivCustomAppenderSlices `protobuf:"bytes,1"`
+	Int    uint32                     `protobuf:"varint,2"`
+	Fixedp *uint32                    `protobuf:"fixed32,3"`
+}
+
+type EquivCustomAppenderSlices struct {
+	Slice1 []uint32 `protobuf:"varint,1,packed"`
+	Slice2 []uint32 `protobuf:"varint,2,packed"`
+}
+
+func (*EquivToCustomAppenderMsg) ProtoMessage()    {}
+func (m *EquivToCustomAppenderMsg) String() string { return fmt.Sprintf("%+v", *m) }
+func (m *EquivToCustomAppenderMsg) Reset()         { *m = EquivToCustomAppenderMsg{} }
+
+func (*EquivCustomAppenderSlices) ProtoMessage()    {}
+func (m *EquivCustomAppenderSlices) String() string { return fmt.Sprintf("%+v", *m) }
+func (m *EquivCustomAppenderSlices) Reset()         { *m = EquivCustomAppenderSlices{} }
+
+func TestCustomAppenderMsg(t *testing.T) {
+	var custom_int = CustomAppenderFixed(7)
+	m := CustomAppenderMsg{
+		Slice:  CustomAppenderSlice{[]uint32{1, 2}, []uint32{3, 4, 5}},
+		Int:    5,
+		Fixedp: &custom_int,
+	}
+
+	var custom_uint32 = uint32(custom_int)
+	o := EquivToCustomAppenderMsg{
+		Custom: &EquivCustomAppenderSlices{
+			Slice1: []uint32{1, 2},
+			Slice2: []uint32{3, 4, 5},
+		},
+		Int:    5,
+		Fixedp: &custom_uint32,
+	}
+
+	check(&o, &o, t)
+	check(&m, &o, t)
+
+	var mb CustomAppenderMsg
+	var mc EquivToCustomAppenderMsg
+	uncheck(&m, &mb, &mc, t)
+	eq("mb", m, mb, t)
+	eq("mc", o, mc, t)
+}
+
+type SliceAppenderMsg struct {
+	Slice []TestAppender `protobuf:"bytes,1"`
+}
+
+type TestAppender [4]byte
+
+func (t *TestAppender) AppendProtobuf3(o *protobuf3.Buffer, must bool) error {
+	o.EncodeRawBytes((*t)[:])
+	return nil
+}
+
+func (t *TestAppender) UnmarshalProtobuf3(data []byte) error {
+	copy(t[:], data)
+	return nil
+}
+
+type EquivSliceAppenderMsg struct {
+	Slice [][]byte `protobuf:"bytes,1"`
+}
+
+func (*EquivSliceAppenderMsg) ProtoMessage()    {}
+func (m *EquivSliceAppenderMsg) String() string { return fmt.Sprintf("%+v", *m) }
+func (m *EquivSliceAppenderMsg) Reset()         { *m = EquivSliceAppenderMsg{} }
+
+func TestSliceAppenderMsg(t *testing.T) {
+	m := SliceAppenderMsg{
+		Slice: []TestAppender{[4]byte{1, 2, 3, 4}, [4]byte{5, 6, 7, 8}},
+	}
+
+	o := EquivSliceAppenderMsg{
+		Slice: [][]byte{[]byte{1, 2, 3, 4}, []byte{5, 6, 7, 8}},
+	}
+
+	check(&o, &o, t)
+	check(&m, &o, t)
+
+	var mb SliceAppenderMsg
+	var mc EquivSliceAppenderMsg
 	uncheck(&m, &mb, &mc, t)
 	eq("mb", m, mb, t)
 	eq("mc", o, mc, t)

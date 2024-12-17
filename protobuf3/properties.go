@@ -338,7 +338,7 @@ func AsProtobufFull2(t reflect.Type, extra_package_headers []string, more ...ref
 					if _, ok := discovered[tt]; !ok {
 						// it's a new type of field
 						switch {
-						case pp.isMarshaler:
+						case pp.isAppender || pp.isMarshaler:
 							// we can't recurse further into a custom type
 							discovered[tt] = struct{}{}
 						case isAsProtobuf3er(reflect.PtrTo(tt)) || isAsV1Protobuf3er(reflect.PtrTo(tt)):
@@ -397,7 +397,7 @@ func AsProtobufFull2(t reflect.Type, extra_package_headers []string, more ...ref
 			imports = []string{"google/protobuf/duration.proto"}
 			external = true
 
-		case isMarshaler(ptr_t):
+		case isAppender(ptr_t) || isMarshaler(ptr_t):
 			// we can't define a custom type automatically. see if it can tell us, and otherwise remind the human to do it.
 			switch {
 			case isAsProtobuf3er(ptr_t):
@@ -476,6 +476,7 @@ type Properties struct {
 	stype       reflect.Type      // set for struct types and time.Duration only
 	sprop       *StructProperties // set for struct types only
 	isMarshaler bool              // true if the type implements Marshaler and marshals/unmarshals itself
+	isAppender  bool              // true if the type implements Appender and helps marshal itself into a *Buffer
 	isOptional  bool              // true if the "optional" attribute was specified in the protobuf: tag. This code (for the obvious reason that it doesn't generate the structs we unmarshal into) largely ignores "optional", but it is copied into the generated .proto, and protoc or some other protobuf code generator will obey it
 
 	mtype    reflect.Type // set for map types only
@@ -616,11 +617,17 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 
 	// can t1 marshal itself?
 	ptr_t1 := reflect.PtrTo(t1)
-	if isMarshaler(ptr_t1) {
+	if isAppender(ptr_t1) {
+		p.isAppender = true
+		p.stype = t1
+		p.enc = (*Buffer).enc_appender
+		p.dec = (*Buffer).dec_unmarshaler
+		p.asProtobuf = p.stypeAsProtobuf()
+	} else if isMarshaler(ptr_t1) {
 		p.isMarshaler = true
 		p.stype = t1
 		p.enc = (*Buffer).enc_marshaler
-		p.dec = (*Buffer).dec_marshaler
+		p.dec = (*Buffer).dec_unmarshaler
 		p.asProtobuf = p.stypeAsProtobuf()
 	} else {
 		switch t1.Kind() {
@@ -760,11 +767,19 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 		case reflect.Ptr:
 			t2 := t1.Elem()
 			// can the target of the pointer marshal itself?
+			if isAppender(t1) {
+				p.stype = t2
+				p.isAppender = true
+				p.enc = (*Buffer).enc_ptr_appender
+				p.dec = (*Buffer).dec_ptr_unmarshaler
+				p.asProtobuf = p.stypeAsProtobuf()
+				break
+			}
 			if isMarshaler(t1) {
 				p.stype = t2
 				p.isMarshaler = true
 				p.enc = (*Buffer).enc_ptr_marshaler
-				p.dec = (*Buffer).dec_ptr_marshaler
+				p.dec = (*Buffer).dec_ptr_unmarshaler
 				p.asProtobuf = p.stypeAsProtobuf()
 				break
 			}
@@ -905,11 +920,19 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 		case reflect.Slice:
 			// can elements of the slice marshal themselves?
 			t2 := t1.Elem()
+			if isAppender(reflect.PtrTo(t2)) {
+				p.isAppender = true
+				p.stype = t2
+				p.enc = (*Buffer).enc_slice_appender
+				p.dec = (*Buffer).dec_slice_unmarshaler
+				p.asProtobuf = "repeated " + p.stypeAsProtobuf()
+				break
+			}
 			if isMarshaler(reflect.PtrTo(t2)) {
 				p.isMarshaler = true
 				p.stype = t2
 				p.enc = (*Buffer).enc_slice_marshaler
-				p.dec = (*Buffer).dec_slice_marshaler
+				p.dec = (*Buffer).dec_slice_unmarshaler
 				p.asProtobuf = "repeated " + p.stypeAsProtobuf()
 				break
 			}
@@ -1041,6 +1064,7 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 				if err != nil {
 					return err
 				}
+				p.isAppender = isAppender(reflect.PtrTo(t2))
 				p.isMarshaler = isMarshaler(reflect.PtrTo(t2))
 				p.enc = (*Buffer).enc_slice_struct_message
 				p.dec = (*Buffer).dec_slice_struct_message
@@ -1059,6 +1083,7 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 					if err != nil {
 						return err
 					}
+					p.isAppender = isAppender(t2)
 					p.isMarshaler = isMarshaler(t2)
 					p.enc = (*Buffer).enc_slice_ptr_struct_message
 					p.dec = (*Buffer).dec_slice_ptr_struct_message
@@ -1091,12 +1116,21 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 			}
 
 			t2 := t1.Elem()
+			if isAppender(reflect.PtrTo(t2)) {
+				// elements of the array can marshal themselves
+				p.isAppender = true
+				p.stype = t2
+				p.enc = (*Buffer).enc_array_appender
+				p.dec = (*Buffer).dec_array_unmarshaler
+				p.asProtobuf = "repeated " + p.stypeAsProtobuf()
+				break
+			}
 			if isMarshaler(reflect.PtrTo(t2)) {
 				// elements of the array can marshal themselves
 				p.isMarshaler = true
 				p.stype = t2
 				p.enc = (*Buffer).enc_array_marshaler
-				p.dec = (*Buffer).dec_array_marshaler
+				p.dec = (*Buffer).dec_array_unmarshaler
 				p.asProtobuf = "repeated " + p.stypeAsProtobuf()
 				break
 			}
@@ -1229,6 +1263,7 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 					if err != nil {
 						return err
 					}
+					p.isAppender = isAppender(t2)
 					p.isMarshaler = isMarshaler(t2)
 					p.enc = (*Buffer).enc_array_ptr_struct_message
 					p.dec = (*Buffer).dec_array_ptr_struct_message
@@ -1400,6 +1435,7 @@ func MakeUppercaseTypeName(t reflect.Type, f string) string {
 
 var (
 	marshalerType        = reflect.TypeOf((*Marshaler)(nil)).Elem()
+	appenderType         = reflect.TypeOf((*Appender)(nil)).Elem()
 	asprotobuffer3Type   = reflect.TypeOf((*AsProtobuf3er)(nil)).Elem()
 	asv1protobuffer3Type = reflect.TypeOf((*AsV1Protobuf3er)(nil)).Elem()
 )
@@ -1407,6 +1443,10 @@ var (
 // isMarshaler reports whether type t implements Marshaler.
 func isMarshaler(t reflect.Type) bool {
 	return t.Implements(marshalerType)
+}
+
+func isAppender(t reflect.Type) bool {
+	return t.Implements(appenderType)
 }
 
 func isAsProtobuf3er(t reflect.Type) bool {
