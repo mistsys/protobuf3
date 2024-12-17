@@ -545,6 +545,7 @@ func (o *Buffer) encode_appender(p *Properties, ptr unsafe.Pointer, must_encode 
 		o.noteError(err)
 		return err
 	}
+	o.buf = b
 
 	if !must_encode && len(o.buf) == n2 {
 		// AppendProtobuf3 didn't append anything; it must be the zero value; remove the tagcode (and if we added it, the length placeholder byte)

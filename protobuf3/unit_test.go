@@ -1118,12 +1118,12 @@ type CustomAppenderMsg struct {
 type CustomAppenderSlice [][]uint32
 
 func (s *CustomAppenderSlice) AppendProtobuf3(b []byte) ([]byte, error) {
-	buf := protobuf3.MakeWriteBuffer(b)
 	if len(*s) == 0 {
 		// the zero-val encodes to nothing
 		return b, nil
 	}
-	var tmp protobuf3.Buffer
+	buf := protobuf3.MakeWriteBuffer(b)
+	var tmp protobuf3.WriteBuffer
 	for i, ss := range *s {
 		tmp.Reset()
 		for _, x := range ss {

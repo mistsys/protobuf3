@@ -76,6 +76,7 @@ type Buffer struct {
 // WriteBuffer is just enough wrapper around a byte slice that it can
 // hold the slice and an accumulated error. Using it when encoding
 // avoids carrying around unecessary fields in Buffer only used when reading.
+// The zero value of a WriteBuffer is ready to use.
 type WriteBuffer struct {
 	buf []byte // encode/decode byte stream
 }
@@ -86,17 +87,22 @@ func NewBuffer(e []byte) *Buffer {
 	return &Buffer{WriteBuffer: MakeWriteBuffer(e)}
 }
 
-// MakeWriteBuffer returns a buffer initialize to read or write from the argument slice
+// MakeWriteBuffer returns a buffer initialize to write to the argument slice
 func MakeWriteBuffer(e []byte) WriteBuffer {
 	return WriteBuffer{buf: e}
 }
 
 // Reset resets the Buffer, ready for marshaling a new protocol buffer.
 func (p *Buffer) Reset() {
-	p.buf = p.buf[0:0] // for reading/writing
-	p.index = 0        // for reading
+	p.WriteBuffer.Reset()
+	p.index = 0 // for reading
 	p.err = nil
 	p.array_indexes = nil
+}
+
+// Reset resets the WriteBuffer while hold on to the capacity
+func (p *WriteBuffer) Reset() {
+	p.buf = p.buf[0:0]
 }
 
 var buffer_pool = sync.Pool{
