@@ -534,10 +534,14 @@ func (o *Buffer) encode_appender(p *Properties, ptr unsafe.Pointer, must_encode 
 	n2 := len(o.buf)
 
 	a := reflect.NewAt(p.stype, ptr).Interface().(Appender)
-	var err error
-	o.buf, err = a.AppendProtobuf3(o.buf)
+	b, err := a.AppendProtobuf3(o.buf)
 	if err != nil {
-		o.buf = o.buf[:n1] // remove the incomplete data for neatness
+		o.noteError(err)
+		return err
+	}
+	// quick sanity check because I've already messed up and returned nil instead of the input
+	if len(b) < len(o.buf) {
+		err = fmt.Errorf("protobuf3: buggy %s.(%s).AppendProtobuf3 implementation returned []byte len %d", p.stype.PkgPath(), p.stype.Name(), len(b))
 		o.noteError(err)
 		return err
 	}
