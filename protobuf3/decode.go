@@ -575,7 +575,7 @@ func (o *Buffer) skip(t reflect.Type, wire WireType) error {
 	case WireFixed32:
 		return o.SkipFixed(4)
 	default:
-		return fmt.Errorf("protobuf3: can't skip unknown wiretype %v for %v", wire, t)
+		return fmt.Errorf("protobuf3: can't skip unknown wiretype %v inside a %v", wire, t)
 	}
 }
 
@@ -1543,7 +1543,7 @@ func (o *Buffer) DecodeTimestamp() (time.Time, error) {
 			nanos, err = o.DecodeVarint()
 		default:
 			// do the protobuf thing and ignore unknown tags
-			o.skip(nil, WireType(tag)&7)
+			err = o.skip(nil, WireType(tag)&7)
 		}
 		if err != nil {
 			return time.Time{}, err
@@ -1570,7 +1570,7 @@ func (o *Buffer) DecodeNSecTimestamp() (int64, error) {
 			nanos, err = o.DecodeVarint()
 		default:
 			// do the protobuf thing and ignore unknown tags
-			o.skip(nil, WireType(tag)&7)
+			err = o.skip(nil, WireType(tag)&7)
 		}
 		if err != nil {
 			return 0, err
@@ -1620,7 +1620,7 @@ func (o *Buffer) dec_Duration(p *Properties) (time.Duration, error) {
 			nanos, err = oo.DecodeVarint()
 		default:
 			// do the protobuf thing and ignore unknown tags
-			oo.skip(nil, WireType(tag)&7)
+			err = oo.skip(nil, WireType(tag)&7)
 		}
 		if err != nil {
 			return 0, err
