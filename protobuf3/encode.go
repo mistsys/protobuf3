@@ -1336,19 +1336,6 @@ func (o *WriteBuffer) EncodeNSecTimestamp(ts int64) {
 	o.EncodeVarint(uint64(nanos))
 }
 
-// AppendNSecTimestamp marshals a int64 nanosecond unix timestamp as a google.protobuf.Timestamp, which is a pair of varints (secs,nanos) tagged 1 and 2
-// prefixed by the total length of the value (needed for WireBytes)
-func (o *WriteBuffer) AppendNSecTimestamp(ts int64) {
-	secs := ts / 1000_000_000
-	nanos := int32(ts - secs*1000_000_000)
-
-	o.EncodeVarint(uint64(1 + SizeVarint(uint64(secs)) + 1 + SizeVarint(uint64(nanos))))
-	o.buf = append(o.buf, 1<<3|byte(WireVarint))
-	o.EncodeVarint(uint64(secs))
-	o.buf = append(o.buf, 2<<3|byte(WireVarint))
-	o.EncodeVarint(uint64(nanos))
-}
-
 // custom encoder for time.Duration, encoding it into the protobuf3 standard Duration
 func (o *Buffer) enc_time_Duration(p *Properties, base unsafe.Pointer) {
 	d := *(*time.Duration)(unsafe.Pointer(uintptr(base) + p.offset))
