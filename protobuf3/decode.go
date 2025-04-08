@@ -1122,7 +1122,15 @@ func (o *Buffer) dec_slice_string(p *Properties, base unsafe.Pointer) error {
 		return err
 	}
 	v := (*[]string)(unsafe.Pointer(uintptr(base) + p.offset))
-	*v = append(*v, s)
+	y := *v
+
+	if y == nil {
+		// preallocate what is probably the right sized slice immediately (if it isn't then we'll append later)
+		n, _ := o.count_ahead(p.Tag, p.WireType)
+		y = make([]string, 0, 1+n)
+	}
+
+	*v = append(y, s)
 	return nil
 }
 
@@ -1162,7 +1170,15 @@ func (o *Buffer) dec_slice_slice_byte(p *Properties, base unsafe.Pointer) error 
 	}
 
 	v := (*[][]byte)(unsafe.Pointer(uintptr(base) + p.offset))
-	*v = append(*v, raw)
+	s := *v
+
+	if s == nil {
+		// preallocate what is probably the right sized slice immediately (if it isn't then we'll append later)
+		n, _ := o.count_ahead(p.Tag, p.WireType)
+		s = make([][]byte, 0, 1+n)
+	}
+
+	*v = append(s, raw)
 	return nil
 }
 
@@ -1282,6 +1298,12 @@ func (o *Buffer) dec_slice_struct_message(p *Properties, base unsafe.Pointer) er
 	slice_type := reflect.SliceOf(p.stype)
 	slice := reflect.NewAt(slice_type, ptr).Elem()
 
+	if slice.IsNil() {
+		// preallocate what is probably the right sized slice immediately (if it isn't then we'll append later)
+		n, _ := o.count_ahead(p.Tag, p.WireType)
+		slice.Set(reflect.MakeSlice(slice.Type(), 0, 1+n))
+	}
+
 	n := slice.Len()
 	if n < slice.Cap() {
 		slice.SetLen(n + 1)
@@ -1365,7 +1387,15 @@ func (o *Buffer) dec_slice_ptr_struct_message(p *Properties, base unsafe.Pointer
 
 	// append pv to the slice []*struct
 	pslice := (*[]unsafe.Pointer)(unsafe.Pointer(uintptr(base) + p.offset))
-	*pslice = append(*pslice, pv)
+	s := *pslice
+
+	if s == nil {
+		// preallocate what is probably the right sized slice immediately (if it isn't then we'll append later)
+		n, _ := o.count_ahead(p.Tag, p.WireType)
+		s = make([]unsafe.Pointer, 0, 1+n)
+	}
+
+	*pslice = append(s, pv)
 
 	return nil
 }
@@ -1450,6 +1480,12 @@ func (o *Buffer) dec_slice_unmarshaler(p *Properties, base unsafe.Pointer) error
 	ptr := unsafe.Pointer(uintptr(base) + p.offset)
 	slice_type := reflect.SliceOf(p.stype)
 	slice := reflect.NewAt(slice_type, ptr).Elem()
+
+	if slice.IsNil() {
+		// preallocate what is probably the right sized slice immediately (if it isn't then we'll append later)
+		n, _ := o.count_ahead(p.Tag, p.WireType)
+		slice.Set(reflect.MakeSlice(slice.Type(), 0, 1+n))
+	}
 
 	n := slice.Len()
 	if n < slice.Cap() {
@@ -1654,7 +1690,15 @@ func (o *Buffer) dec_slice_time_Duration(p *Properties, base unsafe.Pointer) err
 		return err
 	}
 
-	*v = append(*v, d)
+	s := *v
+
+	if s == nil {
+		// preallocate what is probably the right sized slice immediately (if it isn't then we'll append later)
+		n, _ := o.count_ahead(p.Tag, p.WireType)
+		s = make([]time.Duration, 0, 1+n)
+	}
+
+	*v = append(s, d)
 
 	return nil
 }

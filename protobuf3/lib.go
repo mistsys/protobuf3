@@ -277,6 +277,27 @@ func (p *Buffer) Find(id uint, sorted bool) (position int, full []byte, val []by
 	return 0, nil, nil, 0, ErrNotFound
 }
 
+// peek ahead and return the count of the number of upcoming values with tag 'tag' and wiretype 'wiretype'
+// NOTE: Buffer is not changed
+// If a decode error happens while scanning, the returned count is the number of items scanned without an error
+func (p *Buffer) count_ahead(tag uint32, wiretype WireType) (int, error) {
+	idx := p.index // save the starting index, so we can restore it
+	n := 0
+	var err error
+	buflen := ulen(p.buf)
+	var next_tag int
+	var next_wt WireType
+	for p.index < buflen {
+		next_tag, _, _, next_wt, err = p.Next()
+		if next_tag != int(tag) || next_wt != wiretype || err != nil {
+			break
+		}
+		n++
+	}
+	p.index = idx
+	return n, err
+}
+
 // FindBytes is similar to Find but only matches and returns ids with wiretype "bytes".
 // If the id is present but hasn't got the wiretype "bytes" then ErrNotFound is returned.
 // It exists because calling Find() and checking for WireBytes is a common pattern in calling code.
