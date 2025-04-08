@@ -128,6 +128,9 @@ type decoder func(p *Buffer, prop *Properties, base unsafe.Pointer) error
 // A valueDecoder decodes a single integer in a particular encoding.
 type valueDecoder func(o *Buffer) (x uint64, err error)
 
+// A valueCounter looks ahead and counts the number of values in a buffer.
+type valueCounter func(o *Buffer) (n int)
+
 // StructProperties represents properties for all the fields of a struct.
 type StructProperties struct {
 	props    []Properties // properties for each field encoded in protobuf, ordered by tag id
@@ -487,6 +490,7 @@ type Properties struct {
 
 	dec    decoder
 	valDec valueDecoder // set for bool and numeric types only
+	valCnt valueCounter // set for bool and numeric types only
 }
 
 // String formats the properties in the protobuf struct field tag style.
@@ -537,26 +541,31 @@ func (p *Properties) Parse(s string) (IntEncoder, bool, error) {
 	case "varint":
 		p.valEnc = (*Buffer).EncodeVarint
 		p.valDec = (*Buffer).DecodeVarint
+		p.valCnt = (*Buffer).CountVarints
 		p.WireType = WireVarint
 		enc = VarintEncoder
 	case "fixed32":
 		p.valEnc = (*Buffer).EncodeFixed32
 		p.valDec = (*Buffer).DecodeFixed32
+		p.valCnt = (*Buffer).CountFixed32s
 		p.WireType = WireFixed32
 		enc = Fixed32Encoder
 	case "fixed64":
 		p.valEnc = (*Buffer).EncodeFixed64
 		p.valDec = (*Buffer).DecodeFixed64
+		p.valCnt = (*Buffer).CountFixed64s
 		p.WireType = WireFixed64
 		enc = Fixed64Encoder
 	case "zigzag32":
 		p.valEnc = (*Buffer).EncodeZigzag32
 		p.valDec = (*Buffer).DecodeZigzag32
+		p.valCnt = (*Buffer).CountVarints // zigzag uses varint encoding
 		p.WireType = WireVarint
 		enc = Zigzag32Encoder
 	case "zigzag64":
 		p.valEnc = (*Buffer).EncodeZigzag64
 		p.valDec = (*Buffer).DecodeZigzag64
+		p.valCnt = (*Buffer).CountVarints // zigzag uses varint encoding
 		p.WireType = WireVarint
 		enc = Zigzag64Encoder
 	case "bytes":
