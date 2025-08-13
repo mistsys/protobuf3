@@ -81,8 +81,7 @@ type WriteBuffer struct {
 	buf []byte // encode/decode byte stream
 }
 
-// NewBuffer allocates a new Buffer and initializes its internal data to
-// the contents of the argument slice.
+// NewBuffer allocates a new Buffer reading from (or writing to, but in that case a WriteBuffer is lighter weight) the argument slice.
 func NewBuffer(e []byte) *Buffer {
 	return &Buffer{WriteBuffer: MakeWriteBuffer(e)}
 }
