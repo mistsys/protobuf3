@@ -42,7 +42,7 @@ import (
 )
 
 func BenchmarkEncodeSmallVarint(b *testing.B) {
-	buf := protobuf3.NewBuffer(make([]byte, 0, 2*128))
+	buf := protobuf3.MakeWriteBuffer(make([]byte, 0, 2*128))
 	for i := 0; i < b.N; i++ {
 		buf.EncodeVarint(uint64(i & 16383)) // keep values under 2*7 bits
 		if i&127 == 127 {
@@ -62,7 +62,7 @@ func BenchmarkOldEncodeSmallVarint(b *testing.B) {
 }
 
 func BenchmarkEncodeVarint(b *testing.B) {
-	buf := protobuf3.NewBuffer(make([]byte, 0, 10*128))
+	buf := protobuf3.MakeWriteBuffer(make([]byte, 0, 10*128))
 	for i := 0; i < b.N; i++ {
 		buf.EncodeVarint(uint64(i))
 		if i&127 == 127 {
@@ -82,7 +82,7 @@ func BenchmarkOldEncodeVarint(b *testing.B) {
 }
 
 func BenchmarkDecodeSmallVarint(b *testing.B) {
-	input := protobuf3.NewBuffer(nil)
+	input := protobuf3.MakeWriteBuffer(nil)
 	for i := 0; i < 128; i++ {
 		input.EncodeVarint(uint64(i))
 	}
@@ -104,7 +104,7 @@ func BenchmarkDecodeSmallVarint(b *testing.B) {
 
 // decode varint at (or near) the end of the buffer (since it's a special case)
 func BenchmarkDecodeSmallVarintEoB(b *testing.B) {
-	input := protobuf3.NewBuffer(nil)
+	input := protobuf3.MakeWriteBuffer(nil)
 	input.EncodeVarint(42)
 	buf := protobuf3.NewBuffer(input.Bytes())
 	b.ResetTimer()
@@ -139,7 +139,7 @@ func BenchmarkOldDecodeSmallVarint(b *testing.B) {
 }
 
 func BenchmarkDecode2ByteVarint(b *testing.B) {
-	input := protobuf3.NewBuffer(nil)
+	input := protobuf3.MakeWriteBuffer(nil)
 	for i := 128; i < 128*128; i++ {
 		input.EncodeVarint(uint64(i))
 	}
@@ -160,7 +160,7 @@ func BenchmarkDecode2ByteVarint(b *testing.B) {
 }
 
 func BenchmarkDecode2ByteVarintEoB(b *testing.B) {
-	input := protobuf3.NewBuffer(nil)
+	input := protobuf3.MakeWriteBuffer(nil)
 	input.EncodeVarint(128)
 	buf := protobuf3.NewBuffer(input.Bytes())
 	b.ResetTimer()
@@ -195,7 +195,7 @@ func BenchmarkOldDecode2ByteVarint(b *testing.B) {
 }
 
 func BenchmarkDecode3ByteVarint(b *testing.B) {
-	input := protobuf3.NewBuffer(nil)
+	input := protobuf3.MakeWriteBuffer(nil)
 	for i := 128 * 128; i < 128*128+1000; i++ {
 		input.EncodeVarint(uint64(i))
 	}
@@ -216,7 +216,7 @@ func BenchmarkDecode3ByteVarint(b *testing.B) {
 }
 
 func BenchmarkDecode3ByteVarintEoB(b *testing.B) {
-	input := protobuf3.NewBuffer(nil)
+	input := protobuf3.MakeWriteBuffer(nil)
 	input.EncodeVarint(1 << 14)
 	buf := protobuf3.NewBuffer(input.Bytes())
 	b.ResetTimer()
@@ -252,7 +252,7 @@ func BenchmarkOldDecode3ByteVarint(b *testing.B) {
 
 func BenchmarkDecode4ByteVarint(b *testing.B) {
 	const start = 128 * 128 * 128
-	input := protobuf3.NewBuffer(nil)
+	input := protobuf3.MakeWriteBuffer(nil)
 	for i := start; i < start+1000; i++ {
 		input.EncodeVarint(uint64(i))
 	}
@@ -273,7 +273,7 @@ func BenchmarkDecode4ByteVarint(b *testing.B) {
 }
 
 func BenchmarkDecode4ByteVarintEoB(b *testing.B) {
-	input := protobuf3.NewBuffer(nil)
+	input := protobuf3.MakeWriteBuffer(nil)
 	input.EncodeVarint(1 << 21)
 	buf := protobuf3.NewBuffer(input.Bytes())
 	b.ResetTimer()
@@ -289,7 +289,7 @@ func BenchmarkDecode4ByteVarintEoB(b *testing.B) {
 
 func BenchmarkDecode5ByteVarint(b *testing.B) {
 	const start = 128 * 128 * 128 * 128
-	input := protobuf3.NewBuffer(nil)
+	input := protobuf3.MakeWriteBuffer(nil)
 	for i := start; i < start+1000; i++ {
 		input.EncodeVarint(uint64(i))
 	}
@@ -311,7 +311,7 @@ func BenchmarkDecode5ByteVarint(b *testing.B) {
 
 func BenchmarkDecode7ByteVarint(b *testing.B) {
 	const start = 128 * 128 * 128 * 128 * 128 * 128
-	input := protobuf3.NewBuffer(nil)
+	input := protobuf3.MakeWriteBuffer(nil)
 	for i := start; i < start+1000; i++ {
 		input.EncodeVarint(uint64(i))
 	}
@@ -332,7 +332,7 @@ func BenchmarkDecode7ByteVarint(b *testing.B) {
 }
 
 func BenchmarkDecode7ByteVarintEoB(b *testing.B) {
-	input := protobuf3.NewBuffer(nil)
+	input := protobuf3.MakeWriteBuffer(nil)
 	input.EncodeVarint(1 << 42)
 	buf := protobuf3.NewBuffer(input.Bytes())
 	b.ResetTimer()
@@ -348,7 +348,7 @@ func BenchmarkDecode7ByteVarintEoB(b *testing.B) {
 
 func BenchmarkDecode9ByteVarint(b *testing.B) {
 	const start = 128 * 128 * 128 * 128 * 128 * 128 * 128 * 128
-	input := protobuf3.NewBuffer(nil)
+	input := protobuf3.MakeWriteBuffer(nil)
 	for i := start; i < start+1000; i++ {
 		input.EncodeVarint(uint64(i))
 	}
