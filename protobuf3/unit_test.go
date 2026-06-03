@@ -516,6 +516,45 @@ func eq(name string, x interface{}, y interface{}, t *testing.T) {
 	}
 }
 
+// check that all slices have no extra capacity. that is, check that the unmarshaler correctly guessed the required cap
+func checkslices(x interface{}, t *testing.T) {
+	v := reflect.ValueOf(x)
+	_checkslices(v.Type().Name(), v, t)
+}
+
+func _checkslices(name string, v reflect.Value, t *testing.T) {
+	switch v.Kind() {
+	case reflect.Slice:
+		n := v.Len()
+		if n != v.Cap() {
+			t.Errorf("slice %s len %d != cap %d", name, v.Len(), v.Cap())
+		}
+		for i := 0; i < n; i++ {
+			_checkslices(fmt.Sprintf("%s[%d]", name, i), v.Index(i), t)
+		}
+	case reflect.Array:
+		n := v.Len()
+		for i := 0; i < n; i++ {
+			_checkslices(fmt.Sprintf("%s[%d]", name, i), v.Index(i), t)
+		}
+	case reflect.Map:
+		for _, k := range v.MapKeys() {
+			_checkslices(fmt.Sprintf("%s[%v]", name, k.Type().Name()), v.MapIndex(k), t)
+		}
+	case reflect.Pointer:
+		_checkslices(name+".", v.Elem(), t)
+	case reflect.Interface:
+		_checkslices(fmt.Sprintf("%s(%s)", v.Type().Name(), name), v.Elem(), t)
+	case reflect.Struct:
+		nf := v.NumField()
+		for i := 0; i < nf; i++ {
+			sf := v.Type().Field(i)
+			fv := v.Field(i)
+			_checkslices(fmt.Sprintf("%s.%s", name, sf.Name), fv, t)
+		}
+	}
+}
+
 type NestedPtrStructMsg struct {
 	first  *InnerMsg   `protobuf:"bytes,1"`
 	second *InnerMsg   `protobuf:"bytes,2"`
@@ -1107,6 +1146,7 @@ func TestSliceMarshlerMsg(t *testing.T) {
 	uncheck(&m, &mb, &mc, t)
 	eq("mb", m, mb, t)
 	eq("mc", o, mc, t)
+	checkslices(m, t)
 }
 
 type CustomAppenderMsg struct {
@@ -1147,7 +1187,7 @@ func (s *CustomAppenderSlice) UnmarshalProtobuf3(data []byte) error {
 			return err
 		}
 		tmp := protobuf3.NewBuffer(raw)
-		var row []uint32
+		row := make([]uint32, 0, tmp.CountVarints(uint(len(raw))))
 		for !tmp.EOF() {
 			v, err := tmp.DecodeVarint()
 			if err != nil {
@@ -1205,8 +1245,8 @@ func (s *CustomAppenderBytes) AppendProtobuf3(b []byte) ([]byte, error) {
 }
 
 func (s *CustomAppenderBytes) UnmarshalProtobuf3(data []byte) error {
-	*s = nil
-	*s = append(*s, data...)
+	*s = make(CustomAppenderBytes, len(data))
+	copy(*s, data)
 	return nil
 }
 
@@ -1263,6 +1303,7 @@ func TestCustomAppenderMsg(t *testing.T) {
 	uncheck(&m, &mb, &mc, t)
 	eq("mb", m, mb, t)
 	eq("mc", o, mc, t)
+	checkslices(mb, t)
 }
 
 type SliceAppenderMsg struct {
@@ -1305,6 +1346,7 @@ func TestSliceAppenderMsg(t *testing.T) {
 	uncheck(&m, &mb, &mc, t)
 	eq("mb", m, mb, t)
 	eq("mc", o, mc, t)
+	checkslices(mb, t)
 }
 
 type StructArrayMsg struct {
@@ -1713,6 +1755,7 @@ func TestMapOfSliceOfStruct(t *testing.T) {
 		t.Errorf("x = %+v", &m)
 		t.Errorf("unmarshal(marshal(x)) = %+v", &m2)
 	}
+	checkslices(m2, t)
 }
 
 type MapOfPtrToStruct struct {
@@ -1745,6 +1788,7 @@ func TestMapOfPtrToStruct(t *testing.T) {
 		t.Errorf("x = %+v", &m)
 		t.Errorf("unmarshal(marshal(x)) = %+v", &m2)
 	}
+	checkslices(m2, t)
 }
 
 type MapOfStruct struct {
@@ -1777,6 +1821,7 @@ func TestMapOfStruct(t *testing.T) {
 		t.Errorf("x = %+v", &m)
 		t.Errorf("unmarshal(marshal(x)) = %+v", &m2)
 	}
+	checkslices(m2, t)
 }
 
 type MapOfString struct {
@@ -1881,6 +1926,7 @@ func TestSmallVarIntMsg(t *testing.T) {
 	if !reflect.DeepEqual(&m, &m2) {
 		t.Error("unmarshal(marshal(x)) != x")
 	}
+	checkslices(m2, t)
 }
 
 type AnEnum uint16
@@ -2630,6 +2676,8 @@ func TestTimestampAndDuration(t *testing.T) {
 type MsgWithUint8Slice struct {
 	S []percentage `protobuf:"varint,1"`
 	B []int8       `protobuf:"varint,10"`
+	F []uint8      `protobuf:"fixed32,20"`
+	Z []uint8      `protobuf:"bytes,21"`
 }
 
 type percentage uint8
@@ -2644,6 +2692,7 @@ func TestUint8Slice(t *testing.T) {
 
 	m.S = []percentage{'a', 'b', 'c'}
 	m.B = []int8{'x', 'y', 'z'}
+	m.F = []byte{1, 2, 3, 4, 5, 4, 3, 2, 1, 0, 9, 9, 9}
 	pb, err := protobuf3.Marshal(&m)
 	if err != nil {
 		t.Error(err)
@@ -2658,6 +2707,7 @@ func TestUint8Slice(t *testing.T) {
 	if !reflect.DeepEqual(&m, &m2) {
 		t.Errorf("unmarshal(marshal(m)) != m: %+v != %+v", m, m2)
 	}
+	checkslices(m2, t)
 
 	j, err := json.Marshal(&m2)
 	if err != nil {
@@ -2815,6 +2865,7 @@ func TestPackedMsg(t *testing.T) {
 		t.Errorf("Unmarshal() failed: %v", err)
 	}
 	eq("PackedMsg", m, m2, t)
+	checkslices(m2, t)
 
 	// try unmarshaling unpacked data,and verify that it fails to unmarshal because of the wiretype
 	var m3 PackedMsg
