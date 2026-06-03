@@ -814,7 +814,7 @@ func (o *Buffer) dec_array_byte(p *Properties, base unsafe.Pointer) error {
 	// index saved in a map of array->index in Buffer. However for all use cases we have that
 	// is useless extra work. Should we want to decode such a field someday we can either do
 	// the work, or decode into a slice, which is always variable length.
-	s := ((*[maxLen]byte)(unsafe.Pointer(uintptr(base) + p.offset)))[0:n:n]
+	s := unsafe.Slice((*byte)(unsafe.Pointer(uintptr(base)+p.offset)), n)
 
 	copy(s, raw)
 
@@ -863,7 +863,7 @@ func (o *Buffer) dec_array_packed_bool(p *Properties, base unsafe.Pointer) error
 	// index saved in a map of array->index in Buffer. However for all use cases we have that
 	// is useless extra work. Should we want to decode such a field someday we can either do
 	// the work, or decode into a slice, which is always variable length.
-	s := ((*[maxLen]bool)(unsafe.Pointer(uintptr(base) + p.offset)))[0:0:n]
+	s := unsafe.Slice((*bool)(unsafe.Pointer(uintptr(base)+p.offset)), n)[:0]
 
 	nn, err := o.DecodeVarint()
 	if err != nil {
@@ -931,7 +931,7 @@ func (o *Buffer) dec_array_packed_int8(p *Properties, base unsafe.Pointer) error
 	// index saved in a map of array->index in Buffer. However for all use cases we have that
 	// is useless extra work. Should we want to decode such a field someday we can either do
 	// the work, or decode into a slice, which is always variable length.
-	s := ((*[maxLen]int8)(unsafe.Pointer(uintptr(base) + p.offset)))[0:0:n]
+	s := unsafe.Slice((*int8)(unsafe.Pointer(uintptr(base)+p.offset)), n)[:0]
 
 	nn, err := o.DecodeVarint()
 	if err != nil {
@@ -1001,7 +1001,7 @@ func (o *Buffer) dec_array_packed_int16(p *Properties, base unsafe.Pointer) erro
 	// index saved in a map of array->index in Buffer. However for all use cases we have that
 	// is useless extra work. Should we want to decode such a field someday we can either do
 	// the work, or decode into a slice, which is always variable length.
-	s := ((*[maxLen / 2]int16)(unsafe.Pointer(uintptr(base) + p.offset)))[0:0:n]
+	s := unsafe.Slice((*int16)(unsafe.Pointer(uintptr(base)+p.offset)), n)[:0]
 
 	nn, err := o.DecodeVarint()
 	if err != nil {
@@ -1071,7 +1071,7 @@ func (o *Buffer) dec_array_packed_int32(p *Properties, base unsafe.Pointer) erro
 	// index saved in a map of array->index in Buffer. However for all use cases we have that
 	// is useless extra work. Should we want to decode such a field someday we can either do
 	// the work, or decode into a slice, which is always variable length.
-	s := ((*[maxLen / 4]int32)(unsafe.Pointer(uintptr(base) + p.offset)))[0:0:n]
+	s := unsafe.Slice((*int32)(unsafe.Pointer(uintptr(base)+p.offset)), n)[:0]
 
 	nn, err := o.DecodeVarint()
 	if err != nil {
@@ -1175,7 +1175,7 @@ func (o *Buffer) dec_array_packed_int64(p *Properties, base unsafe.Pointer) erro
 	// index saved in a map of array->index in Buffer. However for all use cases we have that
 	// is useless extra work. Should we want to decode such a field someday we can either do
 	// the work, or decode into a slice, which is always variable length.
-	s := ((*[maxLen / 8]int64)(unsafe.Pointer(uintptr(base) + p.offset)))[0:0:n]
+	s := unsafe.Slice((*int64)(unsafe.Pointer(uintptr(base)+p.offset)), n)[:0]
 
 	nn, err := o.DecodeVarint()
 	if err != nil {
@@ -1226,7 +1226,7 @@ func (o *Buffer) dec_slice_string(p *Properties, base unsafe.Pointer) error {
 func (o *Buffer) dec_array_string(p *Properties, base unsafe.Pointer) error {
 	n := p.length
 	ptr := unsafe.Pointer(uintptr(base) + p.offset) // address of 1st element of the array
-	s := ((*[maxLen / 8 / 2]string)(ptr))[0:n:n]
+	s := unsafe.Slice((*string)(ptr), n)
 
 	// the strings are encoded one at a time, each prefixed by a tag.
 	str, err := o.DecodeStringBytes()
@@ -1846,7 +1846,7 @@ func (o *Buffer) dec_array_time_Duration(p *Properties, base unsafe.Pointer) err
 
 	ptr := unsafe.Pointer(uintptr(base) + p.offset) // address of 1st element of the array
 	n := p.length
-	s := ((*[maxLen / 8]time.Duration)(ptr))[0:n:n]
+	s := unsafe.Slice((*time.Duration)(ptr), n)
 
 	i := o.array_indexes[ptr]
 	if i < n {

@@ -669,7 +669,7 @@ func (o *Buffer) enc_slice_packed_bool(p *Properties, base unsafe.Pointer) {
 // Encode an array of bools ([N]bool) in packed format.
 func (o *Buffer) enc_array_packed_bool(p *Properties, base unsafe.Pointer) {
 	n := p.length
-	s := ((*[maxLen]bool)(unsafe.Pointer(uintptr(base) + p.offset)))[0:n:n]
+	s := unsafe.Slice((*bool)(unsafe.Pointer(uintptr(base)+p.offset)), n)
 	o.buf = append(o.buf, p.tagcode...)
 	o.EncodeVarint(uint64(n)) // each bool takes exactly one byte
 	for _, x := range s {
@@ -694,7 +694,7 @@ func (o *Buffer) enc_slice_byte(p *Properties, base unsafe.Pointer) {
 // Encode an array of bytes ([n]byte).
 func (o *Buffer) enc_array_byte(p *Properties, base unsafe.Pointer) {
 	n := p.length
-	s := ((*[maxLen]byte)(unsafe.Pointer(uintptr(base) + p.offset)))[0:n:n]
+	s := unsafe.Slice((*byte)(unsafe.Pointer(uintptr(base)+p.offset)), n)
 	o.buf = append(o.buf, p.tagcode...)
 	o.EncodeRawBytes(s)
 }
@@ -774,7 +774,7 @@ func (o *Buffer) enc_slice_packed_int16(p *Properties, base unsafe.Pointer) {
 // Encode an array of int8s ([length]int8) in packed format.
 func (o *Buffer) enc_array_packed_int8(p *Properties, base unsafe.Pointer) {
 	n := p.length
-	s := ((*[maxLen]int8)(unsafe.Pointer(uintptr(base) + p.offset)))[0:n:n]
+	s := unsafe.Slice((*int8)(unsafe.Pointer(uintptr(base)+p.offset)), n)
 
 	buf := newBuffer(nil)
 	for _, x := range s {
@@ -790,7 +790,7 @@ func (o *Buffer) enc_array_packed_int8(p *Properties, base unsafe.Pointer) {
 // Encode an array of int16s ([length]int16) in packed format.
 func (o *Buffer) enc_array_packed_int16(p *Properties, base unsafe.Pointer) {
 	n := p.length
-	s := ((*[maxLen / 2]int16)(unsafe.Pointer(uintptr(base) + p.offset)))[0:n:n]
+	s := unsafe.Slice((*int16)(unsafe.Pointer(uintptr(base)+p.offset)), n)
 
 	buf := newBuffer(nil)
 	for _, x := range s {
@@ -824,7 +824,7 @@ func (o *Buffer) enc_slice_packed_uint16(p *Properties, base unsafe.Pointer) {
 // Encode an array of uint16s ([length]uint16) in packed format.
 func (o *Buffer) enc_array_packed_uint16(p *Properties, base unsafe.Pointer) {
 	n := p.length
-	s := ((*[maxLen / 2]uint16)(unsafe.Pointer(uintptr(base) + p.offset)))[0:n:n]
+	s := unsafe.Slice((*uint16)(unsafe.Pointer(uintptr(base)+p.offset)), n)
 
 	buf := newBuffer(nil)
 	for _, x := range s {
@@ -858,7 +858,7 @@ func (o *Buffer) enc_slice_packed_int32(p *Properties, base unsafe.Pointer) {
 // Encode an array of int32s ([length]int32) in packed format.
 func (o *Buffer) enc_array_packed_int32(p *Properties, base unsafe.Pointer) {
 	n := p.length
-	s := ((*[maxLen / 4]int32)(unsafe.Pointer(uintptr(base) + p.offset)))[0:n:n]
+	s := unsafe.Slice((*int32)(unsafe.Pointer(uintptr(base)+p.offset)), n)
 
 	buf := newBuffer(nil)
 	for _, x := range s {
@@ -893,7 +893,7 @@ func (o *Buffer) enc_slice_packed_uint32(p *Properties, base unsafe.Pointer) {
 // Encode an array of uint32s ([length]uint32) in packed format.
 func (o *Buffer) enc_array_packed_uint32(p *Properties, base unsafe.Pointer) {
 	n := p.length
-	s := ((*[maxLen / 4]uint32)(unsafe.Pointer(uintptr(base) + p.offset)))[0:n:n]
+	s := unsafe.Slice((*uint32)(unsafe.Pointer(uintptr(base)+p.offset)), n)
 
 	buf := newBuffer(nil)
 	for _, x := range s {
@@ -927,7 +927,7 @@ func (o *Buffer) enc_slice_packed_int64(p *Properties, base unsafe.Pointer) {
 // Encode an array of int64s ([n]int64) in packed format.
 func (o *Buffer) enc_array_packed_int64(p *Properties, base unsafe.Pointer) {
 	n := p.length
-	s := ((*[maxLen / 8]uint64)(unsafe.Pointer(uintptr(base) + p.offset)))[0:n:n]
+	s := unsafe.Slice((*uint64)(unsafe.Pointer(uintptr(base)+p.offset)), n)
 
 	buf := newBuffer(nil)
 	for _, x := range s {
@@ -961,7 +961,7 @@ func (o *Buffer) enc_slice_string(p *Properties, base unsafe.Pointer) {
 // Encode an array of strings ([n]string).
 func (o *Buffer) enc_array_string(p *Properties, base unsafe.Pointer) {
 	n := p.length
-	s := ((*[maxLen / 8 / 2]string)(unsafe.Pointer(uintptr(base) + p.offset)))[0:n:n]
+	s := unsafe.Slice((*string)(unsafe.Pointer(uintptr(base)+p.offset)), n)
 
 	for _, x := range s {
 		o.buf = append(o.buf, p.tagcode...)
@@ -1026,7 +1026,7 @@ func (o *Buffer) enc_slice_ptr_struct_message(p *Properties, base unsafe.Pointer
 // Encode an array of *message structs ([n]*struct).
 func (o *Buffer) enc_array_ptr_struct_message(p *Properties, base unsafe.Pointer) {
 	n := p.length
-	s := ((*[maxLen / 8]unsafe.Pointer)(unsafe.Pointer(uintptr(base) + p.offset)))[0:n:n]
+	s := unsafe.Slice((*unsafe.Pointer)(unsafe.Pointer(uintptr(base)+p.offset)), n)
 
 	// Can the object marshal itself?
 	if p.isAppender {
@@ -1397,7 +1397,7 @@ func (o *Buffer) enc_slice_time_Duration(p *Properties, base unsafe.Pointer) {
 // custom encoder for [N]time.Duration, ... repeated protobuf Duration messages
 func (o *Buffer) enc_array_time_Duration(p *Properties, base unsafe.Pointer) {
 	n := p.length
-	s := ((*[maxLen / 8]time.Duration)(unsafe.Pointer(uintptr(base) + p.offset)))[0:n:n]
+	s := unsafe.Slice((*time.Duration)(unsafe.Pointer(uintptr(base)+p.offset)), n)
 	for _, d := range s {
 		o.enc_Duration(p, d)
 	}

@@ -85,11 +85,6 @@ type AsV1Protobuf3er interface {
 	AsProtobuf3() (name string, definition string)
 }
 
-// maxLen is the maximum length possible for a byte array. On a 64-bit target this is (1<<50)-1. On a 32-bit target it is (1<<31)-1
-// The tricky part is figuring out in a constant what flavor of target we are on. I could sure use a ?: here. It would be more
-// clear than using &^uint(0) to truncate (or not) the upper 32 bits of a constant.
-const maxLen = int((1 << (31 + (((50-31)<<32)&uint64(^uint(0)))>>32)) - 1) // experiments with go1.7 on amd64 show any larger size causes the compiler to error
-
 // Constants that identify the encoding of a value on the wire.
 const (
 	WireVarint     = WireType(0)
