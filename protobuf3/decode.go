@@ -828,7 +828,7 @@ func (o *Buffer) dec_slice_packed_bool(p *Properties, base unsafe.Pointer) error
 	if fin < o.index {
 		return errOverflow
 	}
-	if fin > uint(len(o.buf)) {
+	if fin > ulen(o.buf) {
 		return io.ErrUnexpectedEOF
 	}
 
@@ -868,7 +868,7 @@ func (o *Buffer) dec_array_packed_bool(p *Properties, base unsafe.Pointer) error
 	if fin < o.index {
 		return errOverflow
 	}
-	if fin > uint(len(o.buf)) {
+	if fin > ulen(o.buf) {
 		return io.ErrUnexpectedEOF
 	}
 
@@ -897,7 +897,7 @@ func (o *Buffer) dec_slice_packed_int8(p *Properties, base unsafe.Pointer) error
 	if fin < o.index {
 		return errOverflow
 	}
-	if fin > uint(len(o.buf)) {
+	if fin > ulen(o.buf) {
 		return io.ErrUnexpectedEOF
 	}
 
@@ -936,7 +936,7 @@ func (o *Buffer) dec_array_packed_int8(p *Properties, base unsafe.Pointer) error
 	if fin < o.index {
 		return errOverflow
 	}
-	if fin > uint(len(o.buf)) {
+	if fin > ulen(o.buf) {
 		return io.ErrUnexpectedEOF
 	}
 
@@ -967,7 +967,7 @@ func (o *Buffer) dec_slice_packed_int16(p *Properties, base unsafe.Pointer) erro
 	if fin < o.index {
 		return errOverflow
 	}
-	if fin > uint(len(o.buf)) {
+	if fin > ulen(o.buf) {
 		return io.ErrUnexpectedEOF
 	}
 
@@ -1006,7 +1006,7 @@ func (o *Buffer) dec_array_packed_int16(p *Properties, base unsafe.Pointer) erro
 	if fin < o.index {
 		return errOverflow
 	}
-	if fin > uint(len(o.buf)) {
+	if fin > ulen(o.buf) {
 		return io.ErrUnexpectedEOF
 	}
 
@@ -1037,7 +1037,7 @@ func (o *Buffer) dec_slice_packed_int32(p *Properties, base unsafe.Pointer) erro
 	if fin < o.index {
 		return errOverflow
 	}
-	if fin > uint(len(o.buf)) {
+	if fin > ulen(o.buf) {
 		return io.ErrUnexpectedEOF
 	}
 
@@ -1076,7 +1076,7 @@ func (o *Buffer) dec_array_packed_int32(p *Properties, base unsafe.Pointer) erro
 	if fin < o.index {
 		return errOverflow
 	}
-	if fin > uint(len(o.buf)) {
+	if fin > ulen(o.buf) {
 		return io.ErrUnexpectedEOF
 	}
 
@@ -1107,7 +1107,7 @@ func (o *Buffer) dec_slice_packed_int(p *Properties, base unsafe.Pointer) error 
 	if fin < o.index {
 		return errOverflow
 	}
-	if fin > uint(len(o.buf)) {
+	if fin > ulen(o.buf) {
 		return io.ErrUnexpectedEOF
 	}
 
@@ -1141,7 +1141,7 @@ func (o *Buffer) dec_slice_packed_int64(p *Properties, base unsafe.Pointer) erro
 	if fin < o.index {
 		return errOverflow
 	}
-	if fin > uint(len(o.buf)) {
+	if fin > ulen(o.buf) {
 		return io.ErrUnexpectedEOF
 	}
 
@@ -1180,7 +1180,7 @@ func (o *Buffer) dec_array_packed_int64(p *Properties, base unsafe.Pointer) erro
 	if fin < o.index {
 		return errOverflow
 	}
-	if fin > uint(len(o.buf)) {
+	if fin > ulen(o.buf) {
 		return io.ErrUnexpectedEOF
 	}
 
