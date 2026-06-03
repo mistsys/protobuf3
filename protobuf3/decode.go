@@ -302,9 +302,9 @@ func (p *Buffer) DecodeZigzag32() (x uint64, err error) {
 }
 
 // CountVarints assumes p contains only varints, and counts the number of varints present
-func (p *Buffer) CountVarints() int {
+func (p *Buffer) CountVarints(end uint) int {
 	n := 0
-	for _, b := range p.buf[p.index:] {
+	for _, b := range p.buf[p.index:end] {
 		// every varint ends in  a byte with the top bit cleared, so counting the inverted top bits counts the number of varints
 		n += int(b>>7) ^ 1
 	}
@@ -312,13 +312,13 @@ func (p *Buffer) CountVarints() int {
 }
 
 // CountFixed32s assumes p contains only fixed32 values, and returns the number of values present
-func (p *Buffer) CountFixed32s() int {
-	return len(p.buf[p.index:]) / 4
+func (p *Buffer) CountFixed32s(end uint) int {
+	return len(p.buf[p.index:end]) / 4
 }
 
 // CountFixed64s assumes p contains only fixed64 values, and returns the number of values present
-func (p *Buffer) CountFixed64s() int {
-	return len(p.buf[p.index:]) / 8
+func (p *Buffer) CountFixed64s(end uint) int {
+	return len(p.buf[p.index:end]) / 8
 }
 
 // These are not ValueDecoders: they produce an array of bytes or a string.
@@ -828,10 +828,13 @@ func (o *Buffer) dec_slice_packed_bool(p *Properties, base unsafe.Pointer) error
 	if fin < o.index {
 		return errOverflow
 	}
+	if fin > uint(len(o.buf)) {
+		return io.ErrUnexpectedEOF
+	}
 
 	y := *v
 	if y == nil {
-		y = make([]bool, 0, p.valCnt(o))
+		y = make([]bool, 0, p.valCnt(o, fin))
 	}
 
 	for o.index < fin {
@@ -865,6 +868,9 @@ func (o *Buffer) dec_array_packed_bool(p *Properties, base unsafe.Pointer) error
 	if fin < o.index {
 		return errOverflow
 	}
+	if fin > uint(len(o.buf)) {
+		return io.ErrUnexpectedEOF
+	}
 
 	for o.index < fin {
 		u, err := p.valDec(o)
@@ -891,10 +897,13 @@ func (o *Buffer) dec_slice_packed_int8(p *Properties, base unsafe.Pointer) error
 	if fin < o.index {
 		return errOverflow
 	}
+	if fin > uint(len(o.buf)) {
+		return io.ErrUnexpectedEOF
+	}
 
 	y := *v
 	if y == nil {
-		y = make([]int8, 0, p.valCnt(o))
+		y = make([]int8, 0, p.valCnt(o, fin))
 	}
 
 	for o.index < fin {
@@ -927,6 +936,9 @@ func (o *Buffer) dec_array_packed_int8(p *Properties, base unsafe.Pointer) error
 	if fin < o.index {
 		return errOverflow
 	}
+	if fin > uint(len(o.buf)) {
+		return io.ErrUnexpectedEOF
+	}
 
 	for o.index < fin {
 		u, err := p.valDec(o)
@@ -955,10 +967,13 @@ func (o *Buffer) dec_slice_packed_int16(p *Properties, base unsafe.Pointer) erro
 	if fin < o.index {
 		return errOverflow
 	}
+	if fin > uint(len(o.buf)) {
+		return io.ErrUnexpectedEOF
+	}
 
 	y := *v
 	if y == nil {
-		y = make([]uint16, 0, p.valCnt(o))
+		y = make([]uint16, 0, p.valCnt(o, fin))
 	}
 
 	for o.index < fin {
@@ -991,6 +1006,9 @@ func (o *Buffer) dec_array_packed_int16(p *Properties, base unsafe.Pointer) erro
 	if fin < o.index {
 		return errOverflow
 	}
+	if fin > uint(len(o.buf)) {
+		return io.ErrUnexpectedEOF
+	}
 
 	for o.index < fin {
 		u, err := p.valDec(o)
@@ -1019,10 +1037,13 @@ func (o *Buffer) dec_slice_packed_int32(p *Properties, base unsafe.Pointer) erro
 	if fin < o.index {
 		return errOverflow
 	}
+	if fin > uint(len(o.buf)) {
+		return io.ErrUnexpectedEOF
+	}
 
 	y := *v
 	if y == nil {
-		y = make([]uint32, 0, p.valCnt(o))
+		y = make([]uint32, 0, p.valCnt(o, fin))
 	}
 
 	for o.index < fin {
@@ -1055,6 +1076,9 @@ func (o *Buffer) dec_array_packed_int32(p *Properties, base unsafe.Pointer) erro
 	if fin < o.index {
 		return errOverflow
 	}
+	if fin > uint(len(o.buf)) {
+		return io.ErrUnexpectedEOF
+	}
 
 	for o.index < fin {
 		u, err := p.valDec(o)
@@ -1083,10 +1107,13 @@ func (o *Buffer) dec_slice_packed_int(p *Properties, base unsafe.Pointer) error 
 	if fin < o.index {
 		return errOverflow
 	}
+	if fin > uint(len(o.buf)) {
+		return io.ErrUnexpectedEOF
+	}
 
 	y := *v
 	if y == nil {
-		y = make([]uint, 0, p.valCnt(o))
+		y = make([]uint, 0, p.valCnt(o, fin))
 	}
 
 	for o.index < fin {
@@ -1114,10 +1141,13 @@ func (o *Buffer) dec_slice_packed_int64(p *Properties, base unsafe.Pointer) erro
 	if fin < o.index {
 		return errOverflow
 	}
+	if fin > uint(len(o.buf)) {
+		return io.ErrUnexpectedEOF
+	}
 
 	y := *v
 	if y == nil {
-		y = make([]uint64, 0, p.valCnt(o))
+		y = make([]uint64, 0, p.valCnt(o, fin))
 	}
 
 	for o.index < fin {
@@ -1149,6 +1179,9 @@ func (o *Buffer) dec_array_packed_int64(p *Properties, base unsafe.Pointer) erro
 	fin := o.index + nb
 	if fin < o.index {
 		return errOverflow
+	}
+	if fin > uint(len(o.buf)) {
+		return io.ErrUnexpectedEOF
 	}
 
 	for o.index < fin {

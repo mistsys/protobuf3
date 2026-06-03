@@ -128,8 +128,8 @@ type decoder func(p *Buffer, prop *Properties, base unsafe.Pointer) error
 // A valueDecoder decodes a single integer in a particular encoding.
 type valueDecoder func(o *Buffer) (x uint64, err error)
 
-// A valueCounter looks ahead and counts the number of values in a buffer.
-type valueCounter func(o *Buffer) (n int)
+// A valueCounter looks ahead and counts the number of values in a buffer between index and end
+type valueCounter func(o *Buffer, end uint) (n int)
 
 // StructProperties represents properties for all the fields of a struct.
 type StructProperties struct {
