@@ -67,11 +67,19 @@ type Message interface {
 // rather than being expensive copies.
 type Buffer struct {
 	WriteBuffer
-	err           error                   // nil, or the first error which happened during operation
-	index         uint                    // read position in .buf[]
-	Immutable     bool                    // true if we the caller promises the contents of buf[] are immutable, and thus we can retain references to it for types which decode into []byte
-	array_indexes map[unsafe.Pointer]uint // map of base address of array -> index of next unfilled slot (or nil if never used)
+	err               error                   // nil, or the first error which happened during operation
+	index             uint                    // read position in .buf[]
+	Immutable         bool                    // true if we the caller promises the contents of buf[] are immutable, and thus we can retain references to it for types which decode into []byte
+	MaxRecursionDepth int                     // maximum recursion_depth before declaring the input to be malicious
+	recursion_depth   int                     // current recursion depth of unmarshaling
+	array_indexes     map[unsafe.Pointer]uint // map of base address of array -> index of next unfilled slot (or nil if never used)
 }
+
+// MaxRecursionDepth is the default value of Buffer.MaxRecursionDepth.
+// MaxRecursionDepth is used to catch runaway unmarashaler recursion due to malformed or malicious protobuf input.
+// It should be at least the deepest nesting of structs, maps, slices, arrays or pointers in Unmarshal()'s output.
+// It is not safe to change MaxRecursionDepth while calling this package's functions. Try to set it early in main().
+var MaxRecursionDepth = 1000
 
 // WriteBuffer is just enough wrapper around a byte slice that it can
 // hold the slice and an accumulated error. Using it when encoding
@@ -83,7 +91,7 @@ type WriteBuffer struct {
 
 // NewBuffer allocates a new Buffer reading from (or writing to, but in that case a WriteBuffer is lighter weight) the argument slice.
 func NewBuffer(e []byte) *Buffer {
-	return &Buffer{WriteBuffer: MakeWriteBuffer(e)}
+	return &Buffer{WriteBuffer: MakeWriteBuffer(e), MaxRecursionDepth: MaxRecursionDepth}
 }
 
 // MakeWriteBuffer returns a buffer initialize to write to the argument slice
@@ -96,6 +104,7 @@ func (p *Buffer) Reset() {
 	p.WriteBuffer.Reset()
 	p.index = 0 // for reading
 	p.err = nil
+	p.recursion_depth = 0 // needed if we errored during the previous unmarshal
 	p.array_indexes = nil
 }
 
@@ -112,6 +121,7 @@ var buffer_pool = sync.Pool{
 func newBuffer(e []byte) *Buffer {
 	p := buffer_pool.Get().(*Buffer)
 	p.buf = e
+	p.MaxRecursionDepth = MaxRecursionDepth
 	return p
 }
 
@@ -122,6 +132,7 @@ func (p *Buffer) release() []byte {
 	p.index = 0
 	p.Immutable = false
 	p.err = nil
+	p.recursion_depth = 0
 	p.array_indexes = nil
 	buffer_pool.Put(p)
 	return bytes
@@ -141,6 +152,7 @@ func (p *WriteBuffer) Bytes() []byte { return p.buf }
 // Rewind resets the read point to the start of the buffer.
 func (p *Buffer) Rewind() {
 	p.index = 0
+	p.recursion_depth = 0
 }
 
 // uint(len([]byte)), b/c using uint for indexing saves us some bounds checks for negative indexes

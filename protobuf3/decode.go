@@ -517,6 +517,12 @@ func (o *Buffer) unmarshal_struct(st reflect.Type, prop *StructProperties, base 
 	var pidx = 0      // index into prop.props[] where we should start searching for the next tag
 	var ptag = -1     // -1, or the previous tag (matched or not, depending on whether p is nil or not)
 	var p *Properties // nil, or the p where p.Tag == ptag
+
+	o.recursion_depth++
+	if o.recursion_depth > o.MaxRecursionDepth {
+		return fmt.Errorf("reached MaxRecursionDepth %d while unmarshaling %s", o.MaxRecursionDepth, st.Name())
+	}
+
 	for err == nil && o.index < ulen(o.buf) {
 		start := o.index
 		var wire WireType
@@ -1266,6 +1272,11 @@ func (o *Buffer) dec_slice_slice_byte(p *Properties, base unsafe.Pointer) error 
 
 // Decode a map field.
 func (o *Buffer) dec_new_map(p *Properties, base unsafe.Pointer) error {
+	o.recursion_depth++
+	if o.recursion_depth > o.MaxRecursionDepth {
+		return fmt.Errorf("reached MaxRecursionDepth %d while unmarshaling %s", o.MaxRecursionDepth, p.Name)
+	}
+
 	raw, err := o.DecodeRawBytes()
 	if err != nil {
 		return err
@@ -1344,6 +1355,11 @@ func (o *Buffer) dec_struct_message(p *Properties, base unsafe.Pointer) error {
 
 // Decode a pointer to an embedded message.
 func (o *Buffer) dec_ptr_struct_message(p *Properties, base unsafe.Pointer) error {
+	o.recursion_depth++
+	if o.recursion_depth > o.MaxRecursionDepth {
+		return fmt.Errorf("reached MaxRecursionDepth %d while unmarshaling %s", o.MaxRecursionDepth, p.Name)
+	}
+
 	raw, err := o.DecodeRawBytes()
 	if err != nil {
 		return err
@@ -1370,6 +1386,11 @@ func (o *Buffer) dec_ptr_struct_message(p *Properties, base unsafe.Pointer) erro
 
 // Decode into a slice of messages ([]struct)
 func (o *Buffer) dec_slice_struct_message(p *Properties, base unsafe.Pointer) error {
+	o.recursion_depth++
+	if o.recursion_depth > o.MaxRecursionDepth {
+		return fmt.Errorf("reached MaxRecursionDepth %d while unmarshaling %s", o.MaxRecursionDepth, p.Name)
+	}
+
 	raw, err := o.DecodeRawBytes()
 	if err != nil {
 		return err
@@ -1445,6 +1466,11 @@ func (o *Buffer) dec_array_struct_message(p *Properties, base unsafe.Pointer) er
 
 // Decode into a slice of pointers to messages ([]*struct)
 func (o *Buffer) dec_slice_ptr_struct_message(p *Properties, base unsafe.Pointer) error {
+	o.recursion_depth++
+	if o.recursion_depth > o.MaxRecursionDepth {
+		return fmt.Errorf("reached MaxRecursionDepth %d while unmarshaling %s", o.MaxRecursionDepth, p.Name)
+	}
+
 	raw, err := o.DecodeRawBytes()
 	if err != nil {
 		return err
@@ -1484,6 +1510,11 @@ func (o *Buffer) dec_slice_ptr_struct_message(p *Properties, base unsafe.Pointer
 
 // Decode into a array of pointers to messages ([N]*struct)
 func (o *Buffer) dec_array_ptr_struct_message(p *Properties, base unsafe.Pointer) error {
+	o.recursion_depth++
+	if o.recursion_depth > o.MaxRecursionDepth {
+		return fmt.Errorf("reached MaxRecursionDepth %d while unmarshaling %s", o.MaxRecursionDepth, p.Name)
+	}
+
 	raw, err := o.DecodeRawBytes()
 	if err != nil {
 		return err
@@ -1522,6 +1553,11 @@ func (o *Buffer) dec_array_ptr_struct_message(p *Properties, base unsafe.Pointer
 
 // Decode an embedded message that can unmarshal itself
 func (o *Buffer) dec_unmarshaler(p *Properties, base unsafe.Pointer) error {
+	o.recursion_depth++
+	if o.recursion_depth > o.MaxRecursionDepth {
+		return fmt.Errorf("reached MaxRecursionDepth %d while unmarshaling %s", o.MaxRecursionDepth, p.Name)
+	}
+
 	raw, err := o.get(p.stype, p.WireType)
 	if err != nil {
 		return err
@@ -1534,6 +1570,11 @@ func (o *Buffer) dec_unmarshaler(p *Properties, base unsafe.Pointer) error {
 
 // Decode a pointer to an embedded message that can unmarshal itself
 func (o *Buffer) dec_ptr_unmarshaler(p *Properties, base unsafe.Pointer) error {
+	o.recursion_depth++
+	if o.recursion_depth > o.MaxRecursionDepth {
+		return fmt.Errorf("reached MaxRecursionDepth %d while unmarshaling type %s", o.MaxRecursionDepth, p.Name)
+	}
+
 	raw, err := o.get(p.stype, p.WireType)
 	if err != nil {
 		return err
@@ -1553,6 +1594,11 @@ func (o *Buffer) dec_ptr_unmarshaler(p *Properties, base unsafe.Pointer) error {
 
 // Decode into slice of things which can marshal themselves
 func (o *Buffer) dec_slice_unmarshaler(p *Properties, base unsafe.Pointer) error {
+	o.recursion_depth++
+	if o.recursion_depth > o.MaxRecursionDepth {
+		return fmt.Errorf("reached MaxRecursionDepth %d while unmarshaling %s", o.MaxRecursionDepth, p.Name)
+	}
+
 	raw, err := o.get(p.stype, p.WireType)
 	if err != nil {
 		return err
@@ -1584,6 +1630,11 @@ func (o *Buffer) dec_slice_unmarshaler(p *Properties, base unsafe.Pointer) error
 
 // Decode into an array of unarshalers ([N]T, where T implements unarshaler)
 func (o *Buffer) dec_array_unmarshaler(p *Properties, base unsafe.Pointer) error {
+	o.recursion_depth++
+	if o.recursion_depth > o.MaxRecursionDepth {
+		return fmt.Errorf("reached MaxRecursionDepth %d while unmarshaling %s", o.MaxRecursionDepth, p.Name)
+	}
+
 	raw, err := o.get(p.stype, p.WireType)
 	if err != nil {
 		return err

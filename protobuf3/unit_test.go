@@ -41,6 +41,7 @@ import (
 	ehex "encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"regexp"
 	"strings"
@@ -522,12 +523,13 @@ func checkslices(x interface{}, t *testing.T) {
 	_checkslices(v.Type().Name(), v, t)
 }
 
+// inner function of checkslices(). walks down every path looking for slices and checks their capacity
 func _checkslices(name string, v reflect.Value, t *testing.T) {
 	switch v.Kind() {
 	case reflect.Slice:
 		n := v.Len()
 		if n != v.Cap() {
-			t.Errorf("slice %s len %d != cap %d", name, v.Len(), v.Cap())
+			t.Errorf("slice %s (%s.%s) len %d != cap %d", name, v.Type().PkgPath(), v.Type().Name(), v.Len(), v.Cap())
 		}
 		for i := 0; i < n; i++ {
 			_checkslices(fmt.Sprintf("%s[%d]", name, i), v.Index(i), t)
@@ -542,7 +544,7 @@ func _checkslices(name string, v reflect.Value, t *testing.T) {
 			_checkslices(fmt.Sprintf("%s[%v]", name, k.Type().Name()), v.MapIndex(k), t)
 		}
 	case reflect.Pointer:
-		_checkslices(name+".", v.Elem(), t)
+		_checkslices("*"+name, v.Elem(), t)
 	case reflect.Interface:
 		_checkslices(fmt.Sprintf("%s(%s)", v.Type().Name(), name), v.Elem(), t)
 	case reflect.Struct:
@@ -2875,5 +2877,53 @@ func TestPackedMsg(t *testing.T) {
 		t.Errorf("Unmarshal(unpacked) should have failed")
 	} else if err.Error() != "protobuf3: bad wiretype for field protobuf3_test.PackedMsg.F: got wiretype varint, wanted bytes" {
 		t.Errorf("Unmarshal() failed: %v", err)
+	}
+}
+
+type SlicesMsg struct {
+	Name string      `protobuf:"bytes,1"`
+	T    []bool      `protobuf:"varint,100"`
+	I    []int       `protobuf:"varint,200"`
+	F    []float64   `protobuf:"fixed64,300"`
+	M    []SlicesMsg `protobuf:"bytes,400"`
+	B    []byte      `protobuf:"bytes,500"`
+}
+
+func TestSliceCapAndMaxRecursion(t *testing.T) {
+	var m SlicesMsg
+	protobuf3.MaxRecursionDepth = 1000 // in case someone changes the default
+	for i := 0; i < 64; i++ {          // we should hit MaxRecursionDepth=1000 at i=35
+		name := fmt.Sprintf("SlicesMsg w/ i=%d", i)
+		m.Name = name
+		pb, err := protobuf3.Marshal(&m)
+		if err != nil {
+			t.Errorf("Marshal(%s) failed: %v", name, err)
+			continue
+		}
+		var m2 SlicesMsg
+		err = protobuf3.Unmarshal(pb, &m2)
+		if err != nil {
+			if i == 35 && strings.Contains(err.Error(), "reached MaxRecursionDepth") {
+				// correct behavior. adjust m.M so we can keep going on the next iteration
+				m.M = nil
+				continue
+			}
+			t.Errorf("Unmarshal(%s) failed: %v", name, err)
+			continue
+		} else if i == 35 {
+			t.Errorf("Unmarshal(%s) should have his MaxRecursionDepth but didn't", name)
+		}
+		eq(name, m, m2, t)
+		checkslices(m2, t)
+
+		m.T = append(m.T, i%2 == 1)
+		m.I = append(m.I, i)
+		m.F = append(m.F, float64(i)+math.Pi)
+		m3 := m
+		if len(m3.M) > 4 {
+			m3.M = m3.M[:4]
+		}
+		m.M = append(m.M, m3)
+		m.B = append(m.B, byte(i/3))
 	}
 }
