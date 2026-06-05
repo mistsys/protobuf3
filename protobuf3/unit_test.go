@@ -2891,8 +2891,8 @@ type SlicesMsg struct {
 
 func TestSliceCapAndMaxRecursion(t *testing.T) {
 	var m SlicesMsg
-	protobuf3.MaxRecursionDepth = 1000 // in case someone changes the default
-	for i := 0; i < 64; i++ {          // we should hit MaxRecursionDepth=1000 at i=35
+	protobuf3.MaxRecursionDepth = 10 // lower the limit to cause it to be reached
+	for i := 0; i < 64; i++ {
 		name := fmt.Sprintf("SlicesMsg w/ i=%d", i)
 		m.Name = name
 		pb, err := protobuf3.Marshal(&m)
@@ -2903,15 +2903,15 @@ func TestSliceCapAndMaxRecursion(t *testing.T) {
 		var m2 SlicesMsg
 		err = protobuf3.Unmarshal(pb, &m2)
 		if err != nil {
-			if i == 35 && strings.Contains(err.Error(), "reached MaxRecursionDepth") {
+			if i%10 == 0 && strings.Contains(err.Error(), "reached MaxRecursionDepth") {
 				// correct behavior. adjust m.M so we can keep going on the next iteration
-				m.M = nil
+				m.M = m.M[:1]
 				continue
 			}
 			t.Errorf("Unmarshal(%s) failed: %v", name, err)
 			continue
-		} else if i == 35 {
-			t.Errorf("Unmarshal(%s) should have his MaxRecursionDepth but didn't", name)
+		} else if i%10 == 0 && i != 0 {
+			t.Errorf("Unmarshal(%s) should have hit MaxRecursionDepth but didn't", name)
 		}
 		eq(name, m, m2, t)
 		checkslices(m2, t)
@@ -2920,8 +2920,8 @@ func TestSliceCapAndMaxRecursion(t *testing.T) {
 		m.I = append(m.I, i)
 		m.F = append(m.F, float64(i)+math.Pi)
 		m3 := m
-		if len(m3.M) > 4 {
-			m3.M = m3.M[:4]
+		if len(m3.M) > 12 {
+			m3.M = m3.M[:12]
 		}
 		m.M = append(m.M, m3)
 		m.B = append(m.B, byte(i/3))
