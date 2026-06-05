@@ -329,9 +329,12 @@ var ErrNotFound = errors.New("ID not found in protobuf buffer")
 func DebugPrint(b []byte) string {
 	var u uint64
 	p := NewBuffer(b)
-	depth := 0
 
 	var out strings.Builder
+	limit := 8 * len(b) // *8 seems to be good enough for my test messages, while catching nasty fuzzer inputs like one million repeats of 0x03 (start group 0)
+	if limit < len(b) { // note this isn't really right. certain values of the upper bits of len(b) won't be detected, but the idea here is to limit the generated output, not be exact
+		limit = len(b)
+	}
 
 	defer func() {
 		if x := recover(); x != nil {
@@ -342,10 +345,6 @@ func DebugPrint(b []byte) string {
 
 out:
 	for {
-		for i := 0; i < depth; i++ {
-			out.WriteString(" ")
-		}
-
 		index := p.index
 		if index == ulen(p.buf) {
 			break
@@ -413,18 +412,16 @@ out:
 
 		case WireStartGroup:
 			out.WriteString(fmt.Sprintf("%3d: t=%3d, start\n", index, tag))
-			depth++
 
 		case WireEndGroup:
-			depth--
 			out.WriteString(fmt.Sprintf("%3d: t=%3d, end\n", index, tag))
 		}
-	}
 
-	if depth != 0 {
-		out.WriteString(fmt.Sprintf("%3d: start-end not balanced %d\n", p.index, depth))
+		if out.Len() > limit {
+			out.WriteString(fmt.Sprintf("protobuf3.DebugPrint output truncated at input offset %d b/c it was growing too large (%d >> %d)\n", p.index, out.Len(), len(b)))
+			break out
+		}
 	}
-	out.WriteString("\n")
 
 	return out.String()
 }
