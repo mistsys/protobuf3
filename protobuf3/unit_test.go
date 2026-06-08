@@ -155,6 +155,7 @@ func (m *FixedMsg) Reset()         { *m = FixedMsg{} }
 
 // fixed size array fields (split out because regular proto.Marshal can't deal with them)
 type FixedArrayMsg struct {
+	az32 [0]int32   `protobuf:"fixed32,20,packed"`
 	ai32 [1]int32   `protobuf:"fixed32,21,packed"`
 	au32 [2]uint32  `protobuf:"fixed32,22,packed"`
 	ai64 [3]int64   `protobuf:"fixed64,23,packed"`
