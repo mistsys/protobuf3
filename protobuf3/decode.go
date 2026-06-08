@@ -938,7 +938,7 @@ func (o *Buffer) dec_array_packed_int8(p *Properties, base unsafe.Pointer) error
 	if err != nil {
 		return err
 	}
-	nb := uint(nn) // number of bytes of encoded bools
+	nb := uint(nn) // number of bytes of encoded ints
 	fin := o.index + nb
 	if fin < o.index {
 		return errOverflow
@@ -1008,7 +1008,7 @@ func (o *Buffer) dec_array_packed_int16(p *Properties, base unsafe.Pointer) erro
 	if err != nil {
 		return err
 	}
-	nb := uint(nn) // number of bytes of encoded bools
+	nb := uint(nn) // number of bytes of encoded ints
 	fin := o.index + nb
 	if fin < o.index {
 		return errOverflow
@@ -1078,7 +1078,7 @@ func (o *Buffer) dec_array_packed_int32(p *Properties, base unsafe.Pointer) erro
 	if err != nil {
 		return err
 	}
-	nb := uint(nn) // number of bytes of encoded bools
+	nb := uint(nn) // number of bytes of encoded ints
 	fin := o.index + nb
 	if fin < o.index {
 		return errOverflow
@@ -1182,7 +1182,7 @@ func (o *Buffer) dec_array_packed_int64(p *Properties, base unsafe.Pointer) erro
 	if err != nil {
 		return err
 	}
-	nb := uint(nn) // number of bytes of encoded bools
+	nb := uint(nn) // number of bytes of encoded ints
 	fin := o.index + nb
 	if fin < o.index {
 		return errOverflow
