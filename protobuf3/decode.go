@@ -1566,7 +1566,7 @@ func (o *Buffer) dec_ptr_unmarshaler(p *Properties, base unsafe.Pointer) error {
 	return err
 }
 
-// Decode into slice of things which can marshal themselves
+// Decode into slice of things which can unmarshal themselves
 func (o *Buffer) dec_slice_unmarshaler(p *Properties, base unsafe.Pointer) error {
 	raw, err := o.get(p.stype, p.WireType)
 	if err != nil {
