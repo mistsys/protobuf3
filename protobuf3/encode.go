@@ -717,6 +717,22 @@ func (o *Buffer) enc_slice_packed_int(p *Properties, base unsafe.Pointer) {
 	buf.release()
 }
 
+// Encode an array of int16s ([length]int) in packed format.
+func (o *Buffer) enc_array_packed_int(p *Properties, base unsafe.Pointer) {
+	n := p.length
+	s := unsafe.Slice((*int)(unsafe.Pointer(uintptr(base)+p.offset)), n)
+
+	buf := newBuffer(nil)
+	for _, x := range s {
+		p.valEnc(buf, uint64(x))
+	}
+
+	o.buf = append(o.buf, p.tagcode...)
+	o.EncodeVarint(uint64(len(buf.buf)))
+	o.buf = append(o.buf, buf.buf...)
+	buf.release()
+}
+
 // Encode a slice of uint ([]uint) in packed format.
 func (o *Buffer) enc_slice_packed_uint(p *Properties, base unsafe.Pointer) {
 	s := *(*[]uint)(unsafe.Pointer(uintptr(base) + p.offset))
@@ -724,6 +740,22 @@ func (o *Buffer) enc_slice_packed_uint(p *Properties, base unsafe.Pointer) {
 	if l == 0 {
 		return
 	}
+	buf := newBuffer(nil)
+	for _, x := range s {
+		p.valEnc(buf, uint64(x))
+	}
+
+	o.buf = append(o.buf, p.tagcode...)
+	o.EncodeVarint(uint64(len(buf.buf)))
+	o.buf = append(o.buf, buf.buf...)
+	buf.release()
+}
+
+// Encode an array of uint ([length]uint) in packed format.
+func (o *Buffer) enc_array_packed_uint(p *Properties, base unsafe.Pointer) {
+	n := p.length
+	s := unsafe.Slice((*uint)(unsafe.Pointer(uintptr(base)+p.offset)), n)
+
 	buf := newBuffer(nil)
 	for _, x := range s {
 		p.valEnc(buf, uint64(x))

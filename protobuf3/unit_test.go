@@ -1865,21 +1865,29 @@ type SmallVarIntMsg struct {
 	u8  uint8  `protobuf:"varint,31"`
 	i16 int16  `protobuf:"varint,32"`
 	u16 uint16 `protobuf:"varint,33"`
+	i   int    `protobuf:"varint,50"`
+	u   uint   `protobuf:"varint,51"`
 
 	pi8  *int8   `protobuf:"varint,34"`
 	pu8  *uint8  `protobuf:"varint,35"`
 	pi16 *int16  `protobuf:"varint,36"`
 	pu16 *uint16 `protobuf:"varint,37"`
+	pi   *int    `protobuf:"varint,52"`
+	pu   *uint   `protobuf:"varint,53"`
 
 	si8  []int8   `protobuf:"varint,38,packed"`
 	su8  []uint8  `protobuf:"varint,39,packed"`
 	si16 []int16  `protobuf:"varint,40,packed"`
 	su16 []uint16 `protobuf:"varint,41,packed"`
+	si   []int    `protobuf:"varint,54,packed"`
+	su   []uint   `protobuf:"varint,55,packed"`
 
 	ai8  [2]int8   `protobuf:"varint,42,packed"`
 	au8  [3]uint8  `protobuf:"varint,43,packed"`
 	ai16 [1]int16  `protobuf:"varint,44,packed"`
 	au16 [1]uint16 `protobuf:"varint,45,packed"`
+	ai   [1]int    `protobuf:"varint,56,packed"`
+	au   [1]uint   `protobuf:"varint,57,packed"`
 
 	// try a zero-length array type too
 	zu16 [0]uint16 `protobuf:"varint,46,packed"`
@@ -1890,27 +1898,37 @@ func TestSmallVarIntMsg(t *testing.T) {
 	u8 := uint8(4)
 	i16 := int16(4567)
 	u16 := uint16(55555)
+	i := int(-31415926)
+	u := uint(27182818)
 
 	m := SmallVarIntMsg{
 		i8:  -8,
 		u8:  9,
 		i16: -10,
 		u16: 11,
+		i:   12,
+		u:   13,
 
 		pi8:  &i8,
 		pu8:  &u8,
 		pi16: &i16,
 		pu16: &u16,
+		pi:   &i,
+		pu:   &u,
 
 		si8:  []int8{-1, 2, -3},
 		su8:  []uint8{1, 127, 128, 255},
 		si16: []int16{-10000, 20000, -30000},
 		su16: []uint16{0, 30000, 60000},
+		si:   []int{1, -2},
+		su:   []uint{333333333},
 
 		ai8:  [2]int8{3, -4},
 		au8:  [3]uint8{0, 0, 99},
 		ai16: [1]int16{-0x7770},
 		au16: [1]uint16{16},
+		ai:   [1]int{-9999},
+		au:   [1]uint{9999},
 
 		zu16: [0]uint16{},
 	}

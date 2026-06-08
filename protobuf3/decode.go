@@ -1134,6 +1134,42 @@ func (o *Buffer) dec_slice_packed_int(p *Properties, base unsafe.Pointer) error 
 	return nil
 }
 
+// Decode an array of ints ([]int or []uint) in packed format.
+func (o *Buffer) dec_array_packed_int(p *Properties, base unsafe.Pointer) error {
+	n := p.length
+	// NOTE WELL we assume packed integers are encoded in one block. Thus we restart the decoding
+	// at index 0 in the array. Should this not be the case then we ought to restart at an
+	// index saved in a map of array->index in Buffer. However for all use cases we have that
+	// is useless extra work. Should we want to decode such a field someday we can either do
+	// the work, or decode into a slice, which is always variable length.
+	s := unsafe.Slice((*uint)(unsafe.Pointer(uintptr(base)+p.offset)), n)[:0]
+
+	nn, err := o.DecodeVarint()
+	if err != nil {
+		return err
+	}
+	nb := uint(nn) // number of bytes of encoded ints
+	fin := o.index + nb
+	if fin < o.index {
+		return errOverflow
+	}
+	if fin > ulen(o.buf) {
+		return io.ErrUnexpectedEOF
+	}
+
+	for o.index < fin {
+		u, err := p.valDec(o)
+		if err != nil {
+			return err
+		}
+		if uint(len(s)) < n {
+			s = append(s, uint(u))
+		}
+	}
+
+	return nil
+}
+
 // Decode a slice of int64s ([]int64) in packed format.
 func (o *Buffer) dec_slice_packed_int64(p *Properties, base unsafe.Pointer) error {
 	v := (*[]uint64)(unsafe.Pointer(uintptr(base) + p.offset))

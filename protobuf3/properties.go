@@ -1151,6 +1151,22 @@ func (p *Properties) setEncAndDec(t1 reflect.Type, f *reflect.StructField, name 
 				if p.valEnc == nil {
 					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
 				}
+			case reflect.Int:
+				p.enc = (*Buffer).enc_array_packed_int
+				p.dec = (*Buffer).dec_array_packed_int
+				wire = WireBytes // packed=true...
+				p.asProtobuf = "repeated " + int32_encoder_txt
+				if p.valEnc == nil {
+					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
+				}
+			case reflect.Uint:
+				p.enc = (*Buffer).enc_array_packed_uint
+				p.dec = (*Buffer).dec_array_packed_int
+				wire = WireBytes // packed=true...
+				p.asProtobuf = "repeated " + uint32_encoder_txt
+				if p.valEnc == nil {
+					return fmt.Errorf("protobuf3: %q %s cannot have wiretype %s", name, t1, wire)
+				}
 			case reflect.Int8:
 				p.enc = (*Buffer).enc_array_packed_int8
 				p.dec = (*Buffer).dec_array_packed_int8
